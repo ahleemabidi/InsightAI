@@ -1,6 +1,6 @@
 # InsightAI
 
-![InsightAI Logo]([https://example.com/images/insightai_logo.png](https://intelligence-artificielle.com/wp-content/uploads/2022/01/IA-9.png))
+![InsightAI Logo](https://example.com/images/insightai_logo.png](https://intelligence-artificielle.com/wp-content/uploads/2022/01/IA-9.png)](https://cdn.futura-sciences.com/sources/images/IA-technologie.jpeg))
 
 ## Description
 

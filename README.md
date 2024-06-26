@@ -6,6 +6,7 @@
     <img src="https://img.shields.io/badge/build-passing-brightgreen" alt="Build Status">
     <img src="https://img.shields.io/badge/coverage-85%25-yellowgreen" alt="Coverage">
     <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
+    <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
 </p>
 
 ## <span style="color:#FF5733;">Description</span>

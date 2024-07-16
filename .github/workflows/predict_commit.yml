@@ -11,10 +11,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: '3.8'
 
@@ -26,7 +26,12 @@ jobs:
     - name: Run prediction script
       run: |
         python ./predict_commit.py
-        echo $?  # Check the exit code
+        exit_code=$?
+        echo "Exit code: $exit_code"
+        if [ $exit_code -ne 0 ]; then
+          echo "Prediction script failed with exit code $exit_code"
+          exit $exit_code
+        fi
 
     - name: Commit and push prediction results
       env:
@@ -37,4 +42,3 @@ jobs:
         git add prediction_results.txt
         git commit -m "Add prediction results for commit ${{ github.sha }}"
         git push
-        echo $?  # Check the exit code

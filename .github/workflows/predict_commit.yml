@@ -24,7 +24,9 @@ jobs:
         pip install pandas numpy scikit-learn imbalanced-learn tensorflow
 
     - name: Run prediction script
-      run: python ./predict_commit.py
+      run: |
+        python ./predict_commit.py
+        echo $?  # Check the exit code
 
     - name: Commit and push prediction results
       run: |
@@ -33,3 +35,4 @@ jobs:
         git add prediction_results.txt
         git commit -m "Add prediction results for commit ${{ github.sha }}"
         git push
+        echo $?  # Check the exit code

@@ -28,8 +28,8 @@ jobs:
 
     - name: Commit and push prediction results
       run: |
-        git config --global user.email "your-email@example.com"
-        git config --global user.name "your-github-username"
+        git config --global user.email "haythem.kchouk@gmail.com"
+        git config --global user.name "HaythemKchouk"
         git add prediction_results.txt
         git commit -m "Add prediction results for commit ${{ github.sha }}"
         git push

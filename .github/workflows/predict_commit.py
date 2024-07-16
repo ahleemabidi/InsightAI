@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from imblearn.over_sampling import SMote
+from sklearn.model_selection import train_test_split, GridSearchCV
+from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
@@ -97,6 +98,41 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
+# Fonction pour prétraiter une nouvelle commit
+def preprocess_new_commit(commit_text):
+    # Créer un dictionnaire simulé pour la nouvelle commit en utilisant des valeurs connues
+    new_commit = {
+        'Date': pd.Timestamp.now(),
+        'Duration': 0,  # Exemple: durée en secondes
+        'User': data['User'].mode()[0],  # Utiliser la valeur la plus fréquente comme exemple
+        'Author': data['Author'].mode()[0],  # Utiliser la valeur la plus fréquente comme exemple
+        'State': data['State'].mode()[0],  # Utiliser la valeur la plus fréquente comme exemple
+        'Labels': data['Labels'].mode()[0],  # Utiliser la valeur la plus fréquente comme exemple
+        'Year': pd.Timestamp.now().year,
+        'Month': pd.Timestamp.now().month,
+        'Day': pd.Timestamp.now().day
+    }
+
+    # Encoder les colonnes catégorielles avec une gestion des labels inconnus
+    for col in categorical_columns:
+        if new_commit[col] not in label_encoders[col].classes_:
+            label_encoders[col].classes_ = np.append(label_encoders[col].classes_, new_commit[col])
+        new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
+
+    # Ajouter toutes les colonnes manquantes avec des valeurs par défaut
+    missing_cols = set(column_names) - set(new_commit.keys())
+    for col in missing_cols:
+        new_commit[col] = 0
+
+    # Réordonner les colonnes selon l'ordre attendu
+    new_commit_df = pd.DataFrame([new_commit], columns=column_names)
+
+    # Normaliser les données
+    new_commit_scaled = scaler.transform(new_commit_df)
+
+    print(f"Processed New Commit Data: {new_commit_df}")
+    return new_commit_scaled
+
 # Fonction pour prédire une nouvelle commit
 def predict_new_commit(commit_text, model_type='rf'):
     # Prétraiter la nouvelle commit
@@ -119,7 +155,7 @@ def predict_new_commit(commit_text, model_type='rf'):
     result_strings = []
     for i, proba in enumerate(new_commit_prediction_proba[0]):
         class_name = class_mapping.get(i, "Unknown")
-        result_strings.append(f"{proba*100:.2f}% de probabilité que le commit soit classé comme {class_name}.")
+        result_strings.append(f"{proba*100:.2f}% probability that the commit is classified as {class_name}.")
     
     print("Prediction Probabilities: ", new_commit_prediction_proba)
     return "\n".join(result_strings)

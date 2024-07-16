@@ -3,13 +3,10 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
-import tensorflow as tf
+import os
+from sklearn.model_selection import train_test_split, GridSearchCV
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.utils import to_categorical
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import roc_auc_score
-import os
 
 # Charger le fichier CSV
 file_path = './.github/workflows/DATA_Finale.csv'
@@ -88,17 +85,12 @@ rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
 
 # Créer et entraîner le modèle de réseau de neurones
-param_grid_nn = {
-    'epochs': [50, 100],
-    'batch_size': [32, 64]
-}
-
 nn_model = Sequential()
 nn_model.add(Dense(64, input_dim=X_train_sm.shape[1], activation='relu'))
 nn_model.add(Dense(32, activation='relu'))
 nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 
-nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+nn_model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 # Fonction pour prédire une nouvelle commit
 def predict_new_commit(commit_text, model_type='rf'):
@@ -107,10 +99,10 @@ def predict_new_commit(commit_text, model_type='rf'):
     
     if model_type == 'rf':
         # Faire la prédiction avec le modèle Random Forest
-        new_commit_prediction_proba = rf_model.predict_proba(new_commit_preprocessed)
+        new_commit_prediction_proba = rf_model.predict_proba(new_commit_preprocessed.reshape(1, -1))
     elif model_type == 'nn':
         # Faire la prédiction avec le modèle de réseau de neurones
-        new_commit_prediction_proba = nn_model.predict(new_commit_preprocessed)
+        new_commit_prediction_proba = nn_model.predict(new_commit_preprocessed.reshape(1, -1))
 
     # Décoder les classes
     decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
@@ -127,27 +119,37 @@ def predict_new_commit(commit_text, model_type='rf'):
     print("Prediction Probabilities: ", new_commit_prediction_proba)
     return "\n".join(result_strings)
 
-# Fonction pour prétraiter une nouvelle commit
+# Fonction pour prétraiter une nouvelle commit (à implémenter selon vos besoins)
 def preprocess_new_commit(commit_text):
     # Ici, vous pouvez implémenter la logique pour prétraiter la nouvelle commit
     # Cette fonction doit renvoyer les données prétraitées de la commit pour la prédiction
-    pass  # À implémenter selon vos besoins
+    pass
 
 # Chemin complet pour le répertoire courant du script
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Utiliser la dernière commit pour la prédiction
-with open(os.path.join(script_dir, '.git/COMMIT_EDITMSG'), 'r') as file:
-    commit_message = file.read().strip()
+# Chemin complet pour le fichier COMMIT_EDITMSG
+commit_msg_file = os.path.join(script_dir, '.git/COMMIT_EDITMSG')
 
-# Effectuer la prédiction avec le modèle RF par défaut
-result = predict_new_commit(commit_message, model_type='rf')
+# Vérifier si le fichier existe avant de l'ouvrir
+if os.path.exists(commit_msg_file):
+    with open(commit_msg_file, 'r') as file:
+        commit_message = file.read().strip()
+else:
+    print(f"Error: File {commit_msg_file} not found.")
+    commit_message = ""
 
-# Chemin complet pour le fichier de résultats
-result_file = os.path.join(script_dir, 'prediction_results.txt')
-
-# Sauvegarder le résultat dans un fichier texte
-with open(result_file, 'w') as file:
-    file.write(result)
-
-print(f"Prediction results saved to {result_file}")
+# Effectuer la prédiction avec le modèle RF par défaut si le message de commit est disponible
+if commit_message:
+    result = predict_new_commit(commit_message, model_type='rf')
+    
+    # Chemin complet pour le fichier de résultats
+    result_file = os.path.join(script_dir, 'prediction_results.txt')
+    
+    # Sauvegarder le résultat dans un fichier texte
+    with open(result_file, 'w') as file:
+        file.write(result)
+    
+    print(f"Prediction results saved to {result_file}")
+else:
+    print("No commit message available for prediction.")

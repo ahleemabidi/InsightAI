@@ -4,7 +4,6 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
-import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
@@ -55,8 +54,10 @@ vectorizer = TfidfVectorizer()
 X_text_features = vectorizer.fit_transform(data['message'])  # Assurez-vous que 'message' est la colonne de texte
 X_text_features = X_text_features.toarray()  # Convertir en array si nécessaire
 
-# Sauvegarder le TfidfVectorizer
+# Sauvegarder le TfidfVectorizer et le scaler
 joblib.dump(vectorizer, 'tfidf_vectorizer.pkl')
+scaler = StandardScaler()
+joblib.dump(scaler, 'scaler.pkl')
 
 # Prétraiter les données
 X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Created At', 'Updated At'], axis=1, errors='ignore')
@@ -66,7 +67,6 @@ y = data['Classification']
 X = np.hstack((X.values, X_text_features))  # Utiliser X.values pour obtenir un array
 
 # Normaliser les données
-scaler = StandardScaler()
 X = scaler.fit_transform(X)
 
 # Diviser les données en ensembles d'entraînement et de test
@@ -95,7 +95,7 @@ rf_grid = GridSearchCV(estimator=RandomForestClassifier(random_state=42), param_
 rf_grid.fit(X_train_sm, y_train_sm)
 
 rf_model = rf_grid.best_estimator_
-joblib.dump(rf_model, 'rf_model.pkl')  # Sauvegarder le modèle
+rf_model.fit(X_train_sm, y_train_sm)
 
 # Créer et entraîner le modèle de réseau de neurones
 nn_model = Sequential()
@@ -105,23 +105,31 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-# Convertir les labels en format one-hot
-y_train_sm_cat = to_categorical(y_train_sm, num_classes=len(le_class.classes_))
-
 # Entraîner le modèle de réseau de neurones
+y_train_sm_cat = to_categorical(y_train_sm)
 nn_model.fit(X_train_sm, y_train_sm_cat, epochs=50, batch_size=32, validation_split=0.2)
 
 # Sauvegarder le modèle de réseau de neurones
-nn_model.save('nn_model.h5')
+nn_model.save('nn_model.keras')
 
 # Fonction pour prétraiter une nouvelle commit
 def preprocess_new_commit(commit_text):
-    # Charger le TfidfVectorizer
     vectorizer = joblib.load('tfidf_vectorizer.pkl')
-    
-    # Vectoriser le texte en utilisant le TfidfVectorizer sauvegardé
+    scaler = joblib.load('scaler.pkl')
+
+    # Vectoriser le texte
     commit_vector = vectorizer.transform([commit_text])
-    return commit_vector.toarray()
+    commit_vector = commit_vector.toarray()
+    
+    # Vérifiez le nombre de caractéristiques
+    expected_features = X.shape[1] - X_text_features.shape[1]
+    if commit_vector.shape[1] != expected_features:
+        raise ValueError(f"Expected {expected_features} features from TfidfVectorizer, but got {commit_vector.shape[1]}.")
+    
+    # Normaliser les données de prédiction
+    commit_vector = scaler.transform(commit_vector)
+    
+    return commit_vector
 
 # Fonction pour prédire une nouvelle commit
 def predict_new_commit(commit_text, model_type='rf'):
@@ -130,17 +138,11 @@ def predict_new_commit(commit_text, model_type='rf'):
     if new_commit_preprocessed is None or np.isnan(new_commit_preprocessed).any():
         raise ValueError("Le prétraitement a échoué ou a retourné des valeurs NaN.")
     
-    # Charger le modèle approprié
     if model_type == 'rf':
-        rf_model = joblib.load('rf_model.pkl')
         new_commit_prediction_proba = rf_model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
-        nn_model = tf.keras.models.load_model('nn_model.h5')
-        new_commit_preprocessed = StandardScaler().fit_transform(new_commit_preprocessed)
         new_commit_prediction_proba = nn_model.predict(new_commit_preprocessed)
-    else:
-        raise ValueError("Model type should be 'rf' or 'nn'")
-    
+
     decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
     class_mapping = {i: decoded_classes[i] for i in range(len(decoded_classes))}
     

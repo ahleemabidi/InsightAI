@@ -1,19 +1,12 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.feature_extraction.text import TfidfVectorizer
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.utils import to_categorical
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import roc_auc_score
-import subprocess
-import joblib
+import os
 
 # Charger le fichier CSV
-file_path = './.github/workflows/DATA_Finale.csv'
+file_path = './DATA_Finale.csv'
 data = pd.read_csv(file_path)
 
 # Convertir les colonnes de date/heure en datetime
@@ -49,20 +42,12 @@ for col in categorical_columns:
 le_class = LabelEncoder()
 data['Classification'] = le_class.fit_transform(data['Classification'])
 
-# Entraîner le TfidfVectorizer
-vectorizer = TfidfVectorizer()
-X_text_features = vectorizer.fit_transform(data['message'])
-X_text_features = X_text_features.toarray()  # Convertir en array si nécessaire
-
-# Sauvegarder le TfidfVectorizer
-joblib.dump(vectorizer, 'tfidf_vectorizer.pkl')
-
 # Prétraiter les données
 X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Created At', 'Updated At'], axis=1, errors='ignore')
 y = data['Classification']
 
-# Ajouter les caractéristiques textuelles
-X = np.hstack((X.values, X_text_features))
+# Sauvegarder les noms de colonnes
+column_names = X.columns
 
 # Normaliser les données
 scaler = StandardScaler()
@@ -85,7 +70,7 @@ X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 # Créer et entraîner le modèle Random Forest avec les meilleurs paramètres
 param_grid_rf = {
     'n_estimators': [100, 200, 300],
-    'max_features': [None, 'sqrt', 'log2'],
+    'max_features': ['auto', 'sqrt', 'log2'],
     'max_depth': [4, 6, 8, 10],
     'criterion': ['gini', 'entropy']
 }
@@ -96,59 +81,44 @@ rf_grid.fit(X_train_sm, y_train_sm)
 rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
 
-# Créer et entraîner le modèle de réseau de neurones
-def create_nn_model(input_dim):
-    model = Sequential()
-    model.add(Dense(64, input_dim=input_dim, activation='relu'))
-    model.add(Dense(32, activation='relu'))
-    model.add(Dense(len(le_class.classes_), activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    return model
-
-nn_model = create_nn_model(X_train_sm.shape[1])
-
-# Entraîner le modèle de réseau de neurones
-def train_nn_model(X_train, y_train, epochs=50, batch_size=32):
-    y_train_cat = to_categorical(y_train, num_classes=len(le_class.classes_))
-    nn_model.fit(X_train, y_train_cat, epochs=epochs, batch_size=batch_size, validation_split=0.2, verbose=2)
-    return nn_model
-
-nn_model = train_nn_model(X_train_sm, y_train_sm, epochs=50, batch_size=32)
-
-# Fonction pour prétraiter une nouvelle commit
-def preprocess_new_commit(commit_text):
-    # Charger le TfidfVectorizer
-    vectorizer = joblib.load('tfidf_vectorizer.pkl')
-    
-    # Vectoriser le texte en utilisant le TfidfVectorizer sauvegardé
-    commit_vector = vectorizer.transform([commit_text])
-    
-    # Normaliser les nouvelles données
-    scaler = StandardScaler()
-    commit_vector_normalized = scaler.fit_transform(commit_vector.toarray())
-    
-    return commit_vector_normalized
-
 # Fonction pour prédire une nouvelle commit
-def predict_new_commit(commit_text, model_type='rf'):
+
+# Ajouter la fonction preprocess_new_commit ici
+def preprocess_new_commit(commit_text):
+    # Convertir le texte de commit en DataFrame (exemple simplifié)
+    new_commit_data = {
+        'commit_message': [commit_text]
+    }
+    new_commit_df = pd.DataFrame(new_commit_data)
+    
+    # Appliquer les mêmes transformations que sur les données d'entraînement
+    # Supposons que les mêmes étapes de prétraitement sont nécessaires
+
+    # Encoder les colonnes catégorielles
+    for col in categorical_columns:
+        if col in new_commit_df:
+            le = label_encoders[col]
+            new_commit_df[col] = le.transform(new_commit_df[col])
+    
+    # Normaliser les données
+    new_commit_preprocessed = scaler.transform(new_commit_df)
+    
+    return new_commit_preprocessed
+                def predict_new_commit(commit_text, model_type='rf'):
+    # Prétraiter la nouvelle commit
     new_commit_preprocessed = preprocess_new_commit(commit_text)
     
-    if new_commit_preprocessed is None or np.isnan(new_commit_preprocessed).any():
-        raise ValueError("Le prétraitement a échoué ou a retourné des valeurs NaN.")
-    
-    # Assurez-vous que les dimensions des nouvelles données correspondent aux dimensions attendues
-    expected_features = X_train_sm.shape[1]
-    if new_commit_preprocessed.shape[1] != expected_features:
-        raise ValueError(f"Les dimensions des données de prédiction ne correspondent pas. Attendu: {expected_features}, obtenu: {new_commit_preprocessed.shape[1]}")
-    
     if model_type == 'rf':
+        # Faire la prédiction avec le modèle Random Forest
         new_commit_prediction_proba = rf_model.predict_proba(new_commit_preprocessed)
-    elif model_type == 'nn':
-        new_commit_prediction_proba = nn_model.predict(new_commit_preprocessed)
 
+    # Décoder les classes
     decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
+    
+    # Mapping pour les noms des classes
     class_mapping = {i: decoded_classes[i] for i in range(len(decoded_classes))}
     
+    # Afficher les résultats
     result_strings = []
     for i, proba in enumerate(new_commit_prediction_proba[0]):
         class_name = class_mapping.get(i, "Unknown")
@@ -157,8 +127,18 @@ def predict_new_commit(commit_text, model_type='rf'):
     print("Prediction Probabilities: ", new_commit_prediction_proba)
     return "\n".join(result_strings)
 
-# Utiliser l'API git pour obtenir le dernier message de commit
-commit_message = subprocess.check_output(['git', 'log', '-1', '--pretty=%B']).decode('utf-8').strip()
+# Fonction pour prétraiter une nouvelle commit
+def preprocess_new_commit(commit_text):
+    # Ici, vous pouvez implémenter la logique pour prétraiter la nouvelle commit
+    # Cette fonction doit renvoyer les données prétraitées de la commit pour la prédiction
+    pass  # À implémenter selon vos besoins
+
+# Chemin complet pour le répertoire courant du script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Utiliser la dernière commit pour la prédiction
+with open(os.path.join(script_dir, '.git/COMMIT_EDITMSG'), 'r') as file:
+    commit_message = file.read().strip()
 
 # Effectuer la prédiction avec le modèle RF par défaut
 result = predict_new_commit(commit_message, model_type='rf')

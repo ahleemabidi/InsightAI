@@ -3,10 +3,13 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, GridSearchCV
+import joblib
 import os
+import sys
 
 # Charger le fichier CSV
-file_path = './DATA_Finale.csv'
+file_path = './.github/workflows/DATA_Finale.csv'
 data = pd.read_csv(file_path)
 
 # Convertir les colonnes de date/heure en datetime
@@ -70,7 +73,7 @@ X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 # Créer et entraîner le modèle Random Forest avec les meilleurs paramètres
 param_grid_rf = {
     'n_estimators': [100, 200, 300],
-    'max_features': ['auto', 'sqrt', 'log2'],
+    'max_features': ['sqrt', 'log2'],  # Correction ici
     'max_depth': [4, 6, 8, 10],
     'criterion': ['gini', 'entropy']
 }
@@ -80,6 +83,12 @@ rf_grid.fit(X_train_sm, y_train_sm)
 
 rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
+
+# Sauvegarder le modèle et les encodeurs
+joblib.dump(label_encoders, 'label_encoders.pkl')
+joblib.dump(scaler, 'scaler.pkl')
+joblib.dump(rf_model, 'random_forest_model.pkl')
+joblib.dump(le_class, 'label_encoder_class.pkl')
 
 # Fonction pour prédire une nouvelle commit
 def predict_new_commit(commit_text, model_type='rf'):
@@ -107,19 +116,27 @@ def predict_new_commit(commit_text, model_type='rf'):
 
 # Fonction pour prétraiter une nouvelle commit
 def preprocess_new_commit(commit_text):
-    # Ici, vous pouvez implémenter la logique pour prétraiter la nouvelle commit
-    # Cette fonction doit renvoyer les données prétraitées de la commit pour la prédiction
-    pass  # À implémenter selon vos besoins
+    # Créer un DataFrame pour la nouvelle commit
+    new_commit_data = {'commit_message': [commit_text]}
+    new_commit_df = pd.DataFrame(new_commit_data)
+    
+    # Encoder les colonnes catégorielles
+    for col in categorical_columns:
+        if col in new_commit_df:
+            le = label_encoders[col]
+            new_commit_df[col] = le.transform(new_commit_df[col])
+    
+    # Normaliser les données
+    new_commit_preprocessed = scaler.transform(new_commit_df)
+    
+    return new_commit_preprocessed
 
-# Chemin complet pour le répertoire courant du script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Utiliser la dernière commit pour la prédiction
-with open(os.path.join(script_dir, '.git/COMMIT_EDITMSG'), 'r') as file:
-    commit_message = file.read().strip()
-
-# Effectuer la prédiction avec le modèle RF par défaut
-result = predict_new_commit(commit_message, model_type='rf')
-
-# Afficher le résultat
-print(result)
+# Lire le message du commit depuis les arguments de la ligne de commande
+if len(sys.argv) > 1:
+    commit_message = sys.argv[1]
+    # Effectuer la prédiction avec le modèle RF par défaut
+    result = predict_new_commit(commit_message, model_type='rf')
+    # Afficher le résultat
+    print(result)
+else:
+    print("Veuillez fournir un message de commit en argument.")

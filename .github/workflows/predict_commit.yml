@@ -1,0 +1,44 @@
+name: Predict Commit
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+
+    - name: List files in the repository
+      run: |
+        ls -R .github/workflows
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy scikit-learn imbalanced-learn tensorflow
+
+    - name: Run prediction script
+      id: predict_commit
+      run: |
+        python .github/workflows/predict_commit.py
+        exit_code=$?
+        echo "Exit code: $exit_code"
+        if [ $exit_code -ne 0 ]; then
+          echo "Prediction script failed with exit code $exit_code"
+          exit $exit_code
+        fi
+
+    - name: Display prediction results
+      run: |
+        echo "Prediction Results:"
+        cat .github/workflows/prediction_results.txt

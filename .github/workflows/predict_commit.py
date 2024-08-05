@@ -4,6 +4,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
+import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
@@ -54,10 +55,8 @@ vectorizer = TfidfVectorizer()
 X_text_features = vectorizer.fit_transform(data['message'])  # Assurez-vous que 'message' est la colonne de texte
 X_text_features = X_text_features.toarray()  # Convertir en array si nécessaire
 
-# Sauvegarder le TfidfVectorizer et le scaler
+# Sauvegarder le TfidfVectorizer
 joblib.dump(vectorizer, 'tfidf_vectorizer.pkl')
-scaler = StandardScaler()
-joblib.dump(scaler, 'scaler.pkl')
 
 # Prétraiter les données
 X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Created At', 'Updated At'], axis=1, errors='ignore')
@@ -67,6 +66,7 @@ y = data['Classification']
 X = np.hstack((X.values, X_text_features))  # Utiliser X.values pour obtenir un array
 
 # Normaliser les données
+scaler = StandardScaler()
 X = scaler.fit_transform(X)
 
 # Diviser les données en ensembles d'entraînement et de test
@@ -98,6 +98,11 @@ rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
 
 # Créer et entraîner le modèle de réseau de neurones
+param_grid_nn = {
+    'epochs': [50, 100],
+    'batch_size': [32, 64]
+}
+
 nn_model = Sequential()
 nn_model.add(Dense(64, input_dim=X_train_sm.shape[1], activation='relu'))
 nn_model.add(Dense(32, activation='relu'))
@@ -106,30 +111,26 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 # Entraîner le modèle de réseau de neurones
-y_train_sm_cat = to_categorical(y_train_sm)
-nn_model.fit(X_train_sm, y_train_sm_cat, epochs=50, batch_size=32, validation_split=0.2)
+def train_nn_model(X_train, y_train, epochs=100, batch_size=32):
+    y_train_cat = to_categorical(y_train, num_classes=len(le_class.classes_))
+    nn_model.fit(X_train, y_train_cat, epochs=epochs, batch_size=batch_size, validation_split=0.2, verbose=2)
+    return nn_model
 
-# Sauvegarder le modèle de réseau de neurones
-nn_model.save('nn_model.keras')
+nn_model = train_nn_model(X_train_sm, y_train_sm, epochs=50, batch_size=32)
 
 # Fonction pour prétraiter une nouvelle commit
 def preprocess_new_commit(commit_text):
+    # Charger le TfidfVectorizer
     vectorizer = joblib.load('tfidf_vectorizer.pkl')
-    scaler = joblib.load('scaler.pkl')
-
-    # Vectoriser le texte
+    
+    # Vectoriser le texte en utilisant le TfidfVectorizer sauvegardé
     commit_vector = vectorizer.transform([commit_text])
-    commit_vector = commit_vector.toarray()
     
-    # Vérifiez le nombre de caractéristiques
-    expected_features = X.shape[1] - X_text_features.shape[1]
-    if commit_vector.shape[1] != expected_features:
-        raise ValueError(f"Expected {expected_features} features from TfidfVectorizer, but got {commit_vector.shape[1]}.")
+    # Normaliser les nouvelles données
+    scaler = StandardScaler()
+    commit_vector_normalized = scaler.fit_transform(commit_vector.toarray())
     
-    # Normaliser les données de prédiction
-    commit_vector = scaler.transform(commit_vector)
-    
-    return commit_vector
+    return commit_vector_normalized
 
 # Fonction pour prédire une nouvelle commit
 def predict_new_commit(commit_text, model_type='rf'):

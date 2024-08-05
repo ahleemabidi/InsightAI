@@ -3,7 +3,7 @@ name: Predict Commit
 on:
   push:
     branches:
-      - main
+      - Haythem_Kchouk
 
 jobs:
   predict:
@@ -36,9 +36,8 @@ jobs:
         if [ $exit_code -ne 0 ]; then
           echo "Prediction script failed with exit code $exit_code"
           exit $exit_code
-        fi
 
     - name: Display prediction results
       run: |
         echo "Prediction Results:"
-        cat .github/workflows/prediction_results.txt
+        cat prediction_results.txt

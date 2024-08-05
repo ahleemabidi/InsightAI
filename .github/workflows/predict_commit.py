@@ -3,12 +3,6 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.utils import to_categorical
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import roc_auc_score
 import os
 
 # Charger le fichier CSV
@@ -87,19 +81,6 @@ rf_grid.fit(X_train_sm, y_train_sm)
 rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
 
-# Créer et entraîner le modèle de réseau de neurones
-param_grid_nn = {
-    'epochs': [50, 100],
-    'batch_size': [32, 64]
-}
-
-nn_model = Sequential()
-nn_model.add(Dense(64, input_dim=X_train_sm.shape[1], activation='relu'))
-nn_model.add(Dense(32, activation='relu'))
-nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
-
-nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-
 # Fonction pour prédire une nouvelle commit
 def predict_new_commit(commit_text, model_type='rf'):
     # Prétraiter la nouvelle commit
@@ -108,9 +89,6 @@ def predict_new_commit(commit_text, model_type='rf'):
     if model_type == 'rf':
         # Faire la prédiction avec le modèle Random Forest
         new_commit_prediction_proba = rf_model.predict_proba(new_commit_preprocessed)
-    elif model_type == 'nn':
-        # Faire la prédiction avec le modèle de réseau de neurones
-        new_commit_prediction_proba = nn_model.predict(new_commit_preprocessed)
 
     # Décoder les classes
     decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler, TfidfVectorizer
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
 import tensorflow as tf
@@ -9,7 +9,6 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import roc_auc_score
-import os
 import subprocess
 
 # Charger le fichier CSV
@@ -101,25 +100,28 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
+# Fonction pour prétraiter une nouvelle commit
+def preprocess_new_commit(commit_text):
+    # Exemple de vectorisation du texte
+    vectorizer = TfidfVectorizer()  # Vous devriez avoir un vectorizer pré-entrainé
+    commit_vector = vectorizer.transform([commit_text])
+    return commit_vector.toarray()
+
 # Fonction pour prédire une nouvelle commit
 def predict_new_commit(commit_text, model_type='rf'):
-    # Prétraiter la nouvelle commit
     new_commit_preprocessed = preprocess_new_commit(commit_text)
     
+    if new_commit_preprocessed is None or np.isnan(new_commit_preprocessed).any():
+        raise ValueError("Le prétraitement a échoué ou a retourné des valeurs NaN.")
+    
     if model_type == 'rf':
-        # Faire la prédiction avec le modèle Random Forest
         new_commit_prediction_proba = rf_model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
-        # Faire la prédiction avec le modèle de réseau de neurones
         new_commit_prediction_proba = nn_model.predict(new_commit_preprocessed)
 
-    # Décoder les classes
     decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
-    
-    # Mapping pour les noms des classes
     class_mapping = {i: decoded_classes[i] for i in range(len(decoded_classes))}
     
-    # Afficher les résultats
     result_strings = []
     for i, proba in enumerate(new_commit_prediction_proba[0]):
         class_name = class_mapping.get(i, "Unknown")
@@ -127,12 +129,6 @@ def predict_new_commit(commit_text, model_type='rf'):
     
     print("Prediction Probabilities: ", new_commit_prediction_proba)
     return "\n".join(result_strings)
-
-# Fonction pour prétraiter une nouvelle commit
-def preprocess_new_commit(commit_text):
-    # Ici, vous pouvez implémenter la logique pour prétraiter la nouvelle commit
-    # Cette fonction doit renvoyer les données prétraitées de la commit pour la prédiction
-    pass  # À implémenter selon vos besoins
 
 # Utiliser l'API git pour obtenir le dernier message de commit
 commit_message = subprocess.check_output(['git', 'log', '-1', '--pretty=%B']).decode('utf-8').strip()

@@ -5,8 +5,8 @@ from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, GridSearchCV
 import joblib
-from tensorflow.keras.models import load_model
 import os
+import sys
 
 # Charger le fichier CSV
 file_path = './.github/workflows/DATA_Finale.csv'
@@ -73,7 +73,7 @@ X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 # Créer et entraîner le modèle Random Forest avec les meilleurs paramètres
 param_grid_rf = {
     'n_estimators': [100, 200, 300],
-    'max_features': ['auto', 'sqrt', 'log2'],
+    'max_features': ['sqrt', 'log2'],  # Correction ici
     'max_depth': [4, 6, 8, 10],
     'criterion': ['gini', 'entropy']
 }
@@ -131,15 +131,12 @@ def preprocess_new_commit(commit_text):
     
     return new_commit_preprocessed
 
-# Chemin complet pour le répertoire courant du script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Utiliser la dernière commit pour la prédiction
-with open(os.path.join(script_dir, '.git/COMMIT_EDITMSG'), 'r') as file:
-    commit_message = file.read().strip()
-
-# Effectuer la prédiction avec le modèle RF par défaut
-result = predict_new_commit(commit_message, model_type='rf')
-
-# Afficher le résultat
-print(result)
+# Lire le message du commit depuis les arguments de la ligne de commande
+if len(sys.argv) > 1:
+    commit_message = sys.argv[1]
+    # Effectuer la prédiction avec le modèle RF par défaut
+    result = predict_new_commit(commit_message, model_type='rf')
+    # Afficher le résultat
+    print(result)
+else:
+    print("Veuillez fournir un message de commit en argument.")

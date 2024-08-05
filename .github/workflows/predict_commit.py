@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 import os
 
 # Charger le fichier CSV
-file_path = './DATA_Finale.csv'
+file_path = './.github/workflows/DATA_Finale.csv'
 data = pd.read_csv(file_path)
 
 # Convertir les colonnes de date/heure en datetime

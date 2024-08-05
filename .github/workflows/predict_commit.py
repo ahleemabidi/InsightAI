@@ -10,6 +10,7 @@ from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import roc_auc_score
 import os
+import subprocess
 
 # Charger le fichier CSV
 file_path = './.github/workflows/DATA_Finale.csv'
@@ -76,7 +77,7 @@ X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 # Créer et entraîner le modèle Random Forest avec les meilleurs paramètres
 param_grid_rf = {
     'n_estimators': [100, 200, 300],
-    'max_features': ['auto', 'sqrt', 'log2'],
+    'max_features': [None, 'sqrt', 'log2'],
     'max_depth': [4, 6, 8, 10],
     'criterion': ['gini', 'entropy']
 }
@@ -133,12 +134,8 @@ def preprocess_new_commit(commit_text):
     # Cette fonction doit renvoyer les données prétraitées de la commit pour la prédiction
     pass  # À implémenter selon vos besoins
 
-# Chemin complet pour le répertoire courant du script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Utiliser la dernière commit pour la prédiction
-with open(os.path.join(script_dir, '.git/COMMIT_EDITMSG'), 'r') as file:
-    commit_message = file.read().strip()
+# Utiliser l'API git pour obtenir le dernier message de commit
+commit_message = subprocess.check_output(['git', 'log', '-1', '--pretty=%B']).decode('utf-8').strip()
 
 # Effectuer la prédiction avec le modèle RF par défaut
 result = predict_new_commit(commit_message, model_type='rf')

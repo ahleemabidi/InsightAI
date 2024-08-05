@@ -11,6 +11,7 @@ from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import roc_auc_score
 import subprocess
+import joblib
 
 # Charger le fichier CSV
 file_path = './.github/workflows/DATA_Finale.csv'
@@ -49,9 +50,20 @@ for col in categorical_columns:
 le_class = LabelEncoder()
 data['Classification'] = le_class.fit_transform(data['Classification'])
 
+# Entraîner le TfidfVectorizer
+vectorizer = TfidfVectorizer()
+X_text_features = vectorizer.fit_transform(data['message'])  # Assurez-vous que 'message' est la colonne de texte
+X_text_features = X_text_features.toarray()  # Convertir en array si nécessaire
+
+# Sauvegarder le TfidfVectorizer
+joblib.dump(vectorizer, 'tfidf_vectorizer.pkl')
+
 # Prétraiter les données
 X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Created At', 'Updated At'], axis=1, errors='ignore')
 y = data['Classification']
+
+# Ajouter les caractéristiques textuelles
+X = np.hstack((X, X_text_features))
 
 # Sauvegarder les noms de colonnes
 column_names = X.columns
@@ -103,8 +115,10 @@ nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['ac
 
 # Fonction pour prétraiter une nouvelle commit
 def preprocess_new_commit(commit_text):
-    # Exemple de vectorisation du texte
-    vectorizer = TfidfVectorizer()  # Vous devriez avoir un vectorizer pré-entrainé
+    # Charger le TfidfVectorizer
+    vectorizer = joblib.load('tfidf_vectorizer.pkl')
+    
+    # Vectoriser le texte en utilisant le TfidfVectorizer sauvegardé
     commit_vector = vectorizer.transform([commit_text])
     return commit_vector.toarray()
 

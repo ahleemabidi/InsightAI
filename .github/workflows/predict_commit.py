@@ -63,10 +63,7 @@ X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Crea
 y = data['Classification']
 
 # Ajouter les caractéristiques textuelles
-X = np.hstack((X, X_text_features))
-
-# Sauvegarder les noms de colonnes
-column_names = X.columns
+X = np.hstack((X.values, X_text_features))  # Utiliser X.values pour obtenir un array
 
 # Normaliser les données
 scaler = StandardScaler()

@@ -4,7 +4,6 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
-import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
@@ -52,7 +51,7 @@ data['Classification'] = le_class.fit_transform(data['Classification'])
 
 # Entraîner le TfidfVectorizer
 vectorizer = TfidfVectorizer()
-X_text_features = vectorizer.fit_transform(data['message'])  # Assurez-vous que 'message' est la colonne de texte
+X_text_features = vectorizer.fit_transform(data['message'])
 X_text_features = X_text_features.toarray()  # Convertir en array si nécessaire
 
 # Sauvegarder le TfidfVectorizer
@@ -63,7 +62,7 @@ X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Crea
 y = data['Classification']
 
 # Ajouter les caractéristiques textuelles
-X = np.hstack((X.values, X_text_features))  # Utiliser X.values pour obtenir un array
+X = np.hstack((X.values, X_text_features))
 
 # Normaliser les données
 scaler = StandardScaler()
@@ -98,20 +97,18 @@ rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
 
 # Créer et entraîner le modèle de réseau de neurones
-param_grid_nn = {
-    'epochs': [50, 100],
-    'batch_size': [32, 64]
-}
+def create_nn_model(input_dim):
+    model = Sequential()
+    model.add(Dense(64, input_dim=input_dim, activation='relu'))
+    model.add(Dense(32, activation='relu'))
+    model.add(Dense(len(le_class.classes_), activation='softmax'))
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
 
-nn_model = Sequential()
-nn_model.add(Dense(64, input_dim=X_train_sm.shape[1], activation='relu'))
-nn_model.add(Dense(32, activation='relu'))
-nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
-
-nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+nn_model = create_nn_model(X_train_sm.shape[1])
 
 # Entraîner le modèle de réseau de neurones
-def train_nn_model(X_train, y_train, epochs=100, batch_size=32):
+def train_nn_model(X_train, y_train, epochs=50, batch_size=32):
     y_train_cat = to_categorical(y_train, num_classes=len(le_class.classes_))
     nn_model.fit(X_train, y_train_cat, epochs=epochs, batch_size=batch_size, validation_split=0.2, verbose=2)
     return nn_model
@@ -138,6 +135,11 @@ def predict_new_commit(commit_text, model_type='rf'):
     
     if new_commit_preprocessed is None or np.isnan(new_commit_preprocessed).any():
         raise ValueError("Le prétraitement a échoué ou a retourné des valeurs NaN.")
+    
+    # Assurez-vous que les dimensions des nouvelles données correspondent aux dimensions attendues
+    expected_features = X_train_sm.shape[1]
+    if new_commit_preprocessed.shape[1] != expected_features:
+        raise ValueError(f"Les dimensions des données de prédiction ne correspondent pas. Attendu: {expected_features}, obtenu: {new_commit_preprocessed.shape[1]}")
     
     if model_type == 'rf':
         new_commit_prediction_proba = rf_model.predict_proba(new_commit_preprocessed)

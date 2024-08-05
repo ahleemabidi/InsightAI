@@ -95,20 +95,24 @@ rf_grid = GridSearchCV(estimator=RandomForestClassifier(random_state=42), param_
 rf_grid.fit(X_train_sm, y_train_sm)
 
 rf_model = rf_grid.best_estimator_
-rf_model.fit(X_train_sm, y_train_sm)
+joblib.dump(rf_model, 'rf_model.pkl')  # Sauvegarder le modèle
 
 # Créer et entraîner le modèle de réseau de neurones
-param_grid_nn = {
-    'epochs': [50, 100],
-    'batch_size': [32, 64]
-}
-
 nn_model = Sequential()
 nn_model.add(Dense(64, input_dim=X_train_sm.shape[1], activation='relu'))
 nn_model.add(Dense(32, activation='relu'))
 nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Convertir les labels en format one-hot
+y_train_sm_cat = to_categorical(y_train_sm, num_classes=len(le_class.classes_))
+
+# Entraîner le modèle de réseau de neurones
+nn_model.fit(X_train_sm, y_train_sm_cat, epochs=50, batch_size=32, validation_split=0.2)
+
+# Sauvegarder le modèle de réseau de neurones
+nn_model.save('nn_model.h5')
 
 # Fonction pour prétraiter une nouvelle commit
 def preprocess_new_commit(commit_text):
@@ -126,11 +130,17 @@ def predict_new_commit(commit_text, model_type='rf'):
     if new_commit_preprocessed is None or np.isnan(new_commit_preprocessed).any():
         raise ValueError("Le prétraitement a échoué ou a retourné des valeurs NaN.")
     
+    # Charger le modèle approprié
     if model_type == 'rf':
+        rf_model = joblib.load('rf_model.pkl')
         new_commit_prediction_proba = rf_model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
+        nn_model = tf.keras.models.load_model('nn_model.h5')
+        new_commit_preprocessed = StandardScaler().fit_transform(new_commit_preprocessed)
         new_commit_prediction_proba = nn_model.predict(new_commit_preprocessed)
-
+    else:
+        raise ValueError("Model type should be 'rf' or 'nn'")
+    
     decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
     class_mapping = {i: decoded_classes[i] for i in range(len(decoded_classes))}
     

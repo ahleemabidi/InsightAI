@@ -162,14 +162,14 @@ joblib.dump(le_class, './label_encoder_class.pkl')  # Save the label encoder for
 
 # Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
-    # Simulate a dictionary for the new commit using known values
+    # Create a default dictionary with placeholder values for all features
     new_commit = {
         'Date': pd.Timestamp.now(),
         'Duration': 0,  # Example: duration in seconds
-        'User': data['User'].mode()[0],  # Use the most frequent value as an example
-        'Author': data['Author'].mode()[0],  # Use the most frequent value as an example
-        'State': data['State'].mode()[0],  # Use the most frequent value as an example
-        'Labels': data['Labels'].mode()[0],  # Use the most frequent value as an example
+        'User': 0,
+        'Author': 0,
+        'State': 0,
+        'Labels': 0,
         'Year': pd.Timestamp.now().year,
         'Month': pd.Timestamp.now().month,
         'Day': pd.Timestamp.now().day
@@ -180,8 +180,10 @@ def preprocess_new_commit(commit_text):
         if new_commit[col] not in label_encoders[col].classes_:
             # Print for debugging
             print(f"New commit value '{new_commit[col]}' for column '{col}' not found in encoder.")
-            label_encoders[col].classes_ = np.append(label_encoders[col].classes_, new_commit[col])
-        new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
+            # Use the most frequent value as a fallback
+            new_commit[col] = label_encoders[col].transform([0])[0]
+        else:
+            new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
     # Add any missing columns with default values
     missing_cols = set(column_names) - set(new_commit.keys())

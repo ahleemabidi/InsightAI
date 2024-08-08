@@ -11,34 +11,34 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 import sys
 
-# Catégorie personnalisée pour remplacer la catégorie 0
+# Custom category for replacing class 0
 CUSTOM_CATEGORY = "Catégorie Personnalisée"
 
-# Charger le fichier CSV
+# Load the CSV file
 file_path = './.github/workflows/DATA_Finale.csv'
 data = pd.read_csv(file_path)
 
-# Convertir les colonnes de date/heure en datetime
+# Convert date/time columns to datetime
 data['Date'] = pd.to_datetime(data['Date'])
 data['Created At'] = pd.to_datetime(data['Created At'])
 data['Updated At'] = pd.to_datetime(data['Updated At'])
 
-# Extraire les fonctionnalités pertinentes des colonnes de date/heure
+# Extract relevant features from date/time columns
 data['Year'] = data['Date'].dt.year
 data['Month'] = data['Date'].dt.month
 data['Day'] = data['Date'].dt.day
 
-# Convertir la durée en secondes
+# Convert duration to seconds
 data['Duration'] = pd.to_timedelta(data['Duration']).dt.total_seconds()
 
-# Fusionner les classes rares
+# Merge rare classes
 data['Classification'] = data['Classification'].replace({
     'DOCUMENTATION (A NE PAS PRENDRE EN COMPTE)': 'OTHER',
     'BUG (PRIORITAIRE sur les autres LABELS)': 'BUG',
     'ÉVOLUTION (PRIORITAIRE sur les autres LABELS)': 'ÉVOLUTION'
 })
 
-# Encoder les colonnes catégorielles
+# Encode categorical columns
 label_encoders = {}
 categorical_columns = ['User', 'Author', 'State', 'Labels']
 
@@ -47,36 +47,36 @@ for col in categorical_columns:
     data[col] = le.fit_transform(data[col])
     label_encoders[col] = le
 
-# Encoder la colonne Classification
+# Encode the Classification column
 le_class = LabelEncoder()
 data['Classification'] = le_class.fit_transform(data['Classification'])
 
-# Prétraiter les données
+# Preprocess data
 X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Created At', 'Updated At'], axis=1, errors='ignore')
 y = data['Classification']
 
-# Sauvegarder les noms de colonnes
+# Save column names
 column_names = X.columns
 
-# Normaliser les données
+# Normalize the data
 scaler = StandardScaler()
 X = scaler.fit_transform(X)
 
-# Diviser les données en ensembles d'entraînement et de test
+# Split data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-# Ajuster dynamiquement k_neighbors
+# Dynamically adjust k_neighbors
 def get_k_neighbors(y_train):
     min_class_samples = min(y_train.value_counts())
     return max(1, min_class_samples - 1)
 
 k_neighbors = get_k_neighbors(y_train)
 
-# Appliquer SMOTE pour équilibrer les classes sur l'ensemble d'entraînement
+# Apply SMOTE to balance the classes in the training set
 smote = SMOTE(random_state=42, k_neighbors=k_neighbors)
 X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 
-# Hyperparameter tuning pour Random Forest
+# Hyperparameter tuning for Random Forest
 param_grid = {
     'n_estimators': [100, 200, 300],
     'max_features': ['sqrt', 'log2'],
@@ -87,15 +87,15 @@ param_grid = {
 rf_grid = GridSearchCV(estimator=RandomForestClassifier(random_state=42), param_grid=param_grid, cv=5, n_jobs=-1)
 rf_grid.fit(X_train_sm, y_train_sm)
 
-# Meilleurs paramètres et score
+# Best parameters and score
 print("Best Parameters for Random Forest: ", rf_grid.best_params_)
 print("Best Score for Random Forest: ", rf_grid.best_score_)
 
-# Créer et entraîner le modèle Random Forest avec les meilleurs paramètres
+# Create and train the Random Forest model with the best parameters
 rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
 
-# Faire des prédictions et évaluer le modèle Random Forest
+# Make predictions and evaluate the Random Forest model
 y_pred_rf = rf_model.predict(X_test)
 y_pred_proba_rf = rf_model.predict_proba(X_test)
 
@@ -116,7 +116,7 @@ print(accuracy_rf)
 print("\nROC AUC Score (Random Forest):")
 print(roc_auc_rf)
 
-# Créer et entraîner le modèle de réseau de neurones
+# Create and train the neural network model
 y_train_sm_one_hot = to_categorical(y_train_sm)
 y_test_one_hot = to_categorical(y_test)
 
@@ -128,10 +128,10 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
-# Sauvegarder le modèle Keras
+# Save the Keras model
 nn_model.save('./nn_model.h5')
 
-# Faire des prédictions et évaluer le modèle de réseau de neurones
+# Make predictions and evaluate the neural network model
 y_pred_nn = nn_model.predict(X_test)
 y_pred_proba_nn = y_pred_nn
 
@@ -154,72 +154,72 @@ print(accuracy_nn)
 print("\nROC AUC Score (Neural Network):")
 print(roc_auc_nn)
 
-# Sauvegarder les modèles et les objets nécessaires
+# Save models and necessary objects
 joblib.dump(rf_model, './rf_model.pkl')
 joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
-joblib.dump(le_class, './label_encoder_class.pkl')  # Sauvegarder le label encoder pour la classification
+joblib.dump(le_class, './label_encoder_class.pkl')  # Save the label encoder for classification
 
-# Prétraiter une nouvelle commit pour la prédiction
+# Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
-    # Créer un dictionnaire simulé pour la nouvelle commit en utilisant des valeurs connues
+    # Simulate a dictionary for the new commit using known values
     new_commit = {
         'Date': pd.Timestamp.now(),
-        'Duration': 0,  # Exemple: durée en secondes
-        'User': data['User'].mode()[0],  # Utiliser la valeur la plus fréquente comme exemple
-        'Author': data['Author'].mode()[0],  # Utiliser la valeur la plus fréquente comme exemple
-        'State': data['State'].mode()[0],  # Utiliser la valeur la plus fréquente comme exemple
-        'Labels': data['Labels'].mode()[0],  # Utiliser la valeur la plus fréquente comme exemple
+        'Duration': 0,  # Example: duration in seconds
+        'User': data['User'].mode()[0],  # Use the most frequent value as an example
+        'Author': data['Author'].mode()[0],  # Use the most frequent value as an example
+        'State': data['State'].mode()[0],  # Use the most frequent value as an example
+        'Labels': data['Labels'].mode()[0],  # Use the most frequent value as an example
         'Year': pd.Timestamp.now().year,
         'Month': pd.Timestamp.now().month,
         'Day': pd.Timestamp.now().day
     }
 
-    # Encoder les colonnes catégorielles avec une gestion des labels inconnus
+    # Encode categorical columns with handling for unknown labels
     for col in categorical_columns:
         if new_commit[col] not in label_encoders[col].classes_:
             label_encoders[col].classes_ = np.append(label_encoders[col].classes_, new_commit[col])
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
-    # Ajouter toutes les colonnes manquantes avec des valeurs par défaut
+    # Add any missing columns with default values
     missing_cols = set(column_names) - set(new_commit.keys())
     for col in missing_cols:
         new_commit[col] = 0
 
-    # Réordonner les colonnes selon l'ordre attendu
+    # Reorder columns to match the expected order
     new_commit_df = pd.DataFrame([new_commit], columns=column_names)
 
-    # Normaliser les données
+    # Normalize the data
     new_commit_scaled = scaler.transform(new_commit_df)
 
     print(f"Processed New Commit Data: {new_commit_df}")
     return new_commit_scaled
 
-# Fonction pour prédire une nouvelle commit
+# Function to predict a new commit
 def predict_new_commit(commit_text, model_type='rf'):
-    # Prétraiter la nouvelle commit
+    # Preprocess the new commit
     new_commit_preprocessed = preprocess_new_commit(commit_text)
     
     if model_type == 'rf':
-        # Charger le modèle Random Forest
+        # Load the Random Forest model
         model = joblib.load('./rf_model.pkl')
-        # Faire la prédiction avec le modèle Random Forest
+        # Make the prediction with the Random Forest model
         new_commit_prediction_proba = model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
-        # Charger le modèle de réseau de neurones
+        # Load the neural network model
         model = load_model('./nn_model.h5')
-        # Faire la prédiction avec le modèle de réseau de neurones
+        # Make the prediction with the neural network model
         new_commit_prediction_proba = model.predict(new_commit_preprocessed)
     else:
         raise ValueError("Model type not supported")
     
-    # Décoder les classes
+    # Decode classes
     decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
     
-    # Mapping pour les noms des classes avec la catégorie personnalisée
+    # Map class names with the custom category
     class_mapping = {i: (CUSTOM_CATEGORY if i == 0 else decoded_classes[i]) for i in range(len(decoded_classes))}
     
-    # Afficher les résultats
+    # Display the results
     result_strings = []
     for i, proba in enumerate(new_commit_prediction_proba[0]):
         class_name = class_mapping.get(i, "Unknown")
@@ -228,15 +228,15 @@ def predict_new_commit(commit_text, model_type='rf'):
     print("Prediction Probabilities: ", new_commit_prediction_proba)
     return "\n".join(result_strings)
 
-# Lire le message du commit depuis les arguments de la ligne de commande
+# Read the commit message from command line arguments
 if len(sys.argv) > 1:
     commit_message = sys.argv[1]
-    model_type = 'rf'  # Par défaut, utiliser Random Forest
+    model_type = 'rf'  # Default to Random Forest
     if len(sys.argv) > 2:
         model_type = sys.argv[2]
-    # Effectuer la prédiction avec le modèle spécifié
+    # Make the prediction with the specified model
     result = predict_new_commit(commit_message, model_type=model_type)
-    # Afficher le résultat avec un formatage clair
+    # Display the result with clear formatting
     print("\n====================\n")
     print(f"**Résultat de la Prédiction:** {result}")
     print("\n====================\n")

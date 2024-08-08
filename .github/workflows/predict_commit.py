@@ -178,6 +178,8 @@ def preprocess_new_commit(commit_text):
     # Encode categorical columns with handling for unknown labels
     for col in categorical_columns:
         if new_commit[col] not in label_encoders[col].classes_:
+            # Print for debugging
+            print(f"New commit value '{new_commit[col]}' for column '{col}' not found in encoder.")
             label_encoders[col].classes_ = np.append(label_encoders[col].classes_, new_commit[col])
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 

@@ -166,10 +166,10 @@ def preprocess_new_commit(commit_text):
     new_commit = {
         'Date': pd.Timestamp.now(),
         'Duration': 0,  # Example: duration in seconds
-        'User': 0,
-        'Author': 0,
-        'State': 0,
-        'Labels': 0,
+        'User': 'UNKNOWN',
+        'Author': 'UNKNOWN',
+        'State': 'UNKNOWN',
+        'Labels': 'UNKNOWN',
         'Year': pd.Timestamp.now().year,
         'Month': pd.Timestamp.now().month,
         'Day': pd.Timestamp.now().day
@@ -180,10 +180,9 @@ def preprocess_new_commit(commit_text):
         if new_commit[col] not in label_encoders[col].classes_:
             # Print for debugging
             print(f"New commit value '{new_commit[col]}' for column '{col}' not found in encoder.")
-            # Use the most frequent value as a fallback
-            new_commit[col] = label_encoders[col].transform([0])[0]
-        else:
-            new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
+            # Use a default or placeholder value
+            new_commit[col] = 'UNKNOWN'
+        new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
     # Add any missing columns with default values
     missing_cols = set(column_names) - set(new_commit.keys())
@@ -218,21 +217,8 @@ def predict_new_commit(commit_text, model_type='rf'):
     
     # Decode classes
     decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
-    
-    # Map class names with the custom category
-    class_mapping = {i: (CUSTOM_CATEGORY if i == 0 else decoded_classes[i]) for i in range(len(decoded_classes))}
-    
-    # Display the results
-    result_strings = []
-    for i, proba in enumerate(new_commit_prediction_proba[0]):
-        class_name = class_mapping.get(i, "Unknown")
-        result_strings.append(f"- **{class_name}**: {proba*100:.2f}%")
-
-    # Format the final output
-    formatted_result = (
-        "### **Résultat de la Prédiction:**\n\n" +
-        "\n".join(result_strings)
-    )
+    prediction = decoded_classes[np.argmax(new_commit_prediction_proba)]
+    formatted_result = f"Prediction: {prediction}, Probabilities: {new_commit_prediction_proba.flatten()}"
     
     return formatted_result
 

@@ -4,8 +4,8 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
 import joblib
-import os
 import sys
 
 # Charger le fichier CSV
@@ -59,9 +59,16 @@ X = scaler.fit_transform(X)
 # Diviser les données en ensemble d'entraînement et de test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+# Distribution des classes avant et après SMOTE
+print("Distribution des classes avant SMOTE:")
+print(y_train.value_counts())
+
 # Application de SMOTE pour traiter le déséquilibre des classes
 smote = SMOTE(random_state=42)
 X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
+
+print("Distribution des classes après SMOTE:")
+print(pd.Series(y_train_resampled).value_counts())
 
 # Entraîner un modèle de régression (Random Forest dans ce cas)
 rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -72,6 +79,13 @@ model_path = './rf_model.pkl'
 joblib.dump(rf_model, model_path)
 joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
+
+# Évaluer les performances du modèle sur l'ensemble de test
+y_pred = rf_model.predict(X_test)
+print("Rapport de classification sur l'ensemble de test:")
+print(classification_report(y_test, y_pred))
+print("Matrice de confusion:")
+print(confusion_matrix(y_test, y_pred))
 
 # Fonction pour prédire un nouveau commit
 def predict_new_commit(commit_message, model_type='rf'):

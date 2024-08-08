@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split
 import joblib
 import os
 import sys
@@ -97,11 +97,13 @@ def preprocess_new_commit(commit_text):
     new_commit_data = {'commit_message': [commit_text]}
     new_commit_df = pd.DataFrame(new_commit_data)
     
-    # Encoder les colonnes catégorielles
-    for col in categorical_columns:
-        if col in new_commit_df:
-            le = label_encoders[col]
-            new_commit_df[col] = le.transform(new_commit_df[col])
+    # Ajouter les colonnes manquantes avec des valeurs par défaut
+    for col in column_names:
+        if col not in new_commit_df.columns:
+            new_commit_df[col] = 0
+    
+    # Réorganiser les colonnes pour correspondre à l'ordre des colonnes du modèle
+    new_commit_df = new_commit_df[column_names]
     
     # Normaliser les données
     new_commit_preprocessed = scaler.transform(new_commit_df)

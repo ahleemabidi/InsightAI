@@ -1,15 +1,23 @@
 import joblib
 import pandas as pd
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, mean_squared_error, r2_score
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 
 # Charger les modèles
-classification_pipeline = joblib.load('classification_pipeline.pkl')
-regression_pipeline = joblib.load('regression_pipeline.pkl')
+try:
+    classification_pipeline = joblib.load('classification_pipeline.pkl')
+    regression_pipeline = joblib.load('regression_pipeline.pkl')
+except FileNotFoundError as e:
+    print(f"Erreur lors du chargement des modèles : {e}")
+    exit(1)
 
 # Charger les données de test
-file_path = file_path = './DATA_Finale.csv'
+file_path = './DATA_Finale.csv'
 
-data = pd.read_csv(file_path)
+try:
+    data = pd.read_csv(file_path)
+except FileNotFoundError as e:
+    print(f"Erreur lors du chargement des données : {e}")
+    exit(1)
 
 # Convertir la colonne 'Date' en datetime
 data['Date'] = pd.to_datetime(data['Date'])
@@ -30,7 +38,11 @@ X_classification = data[classification_features]
 y_classification = data[classification_target]
 
 # Prédictions avec le modèle de classification
-y_pred_classification = classification_pipeline.predict(X_classification)
+try:
+    y_pred_classification = classification_pipeline.predict(X_classification)
+except Exception as e:
+    print(f"Erreur lors de la prédiction avec le modèle de classification : {e}")
+    exit(1)
 
 # Évaluation du modèle de classification
 print("Classification Accuracy:", accuracy_score(y_classification, y_pred_classification))

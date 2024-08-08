@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
 from imblearn.over_sampling import SMOTE
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 import sys
@@ -76,7 +76,7 @@ X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 # Hyperparameter tuning pour Random Forest
 param_grid = {
     'n_estimators': [100, 200, 300],
-    'max_features': ['auto', 'sqrt', 'log2'],
+    'max_features': ['sqrt', 'log2'],
     'max_depth': [4, 6, 8, 10],
     'criterion': ['gini', 'entropy']
 }
@@ -125,6 +125,9 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
+# Sauvegarder le modèle Keras
+nn_model.save('./nn_model.h5')
+
 # Faire des prédictions et évaluer le modèle de réseau de neurones
 y_pred_nn = nn_model.predict(X_test)
 y_pred_proba_nn = y_pred_nn
@@ -148,11 +151,10 @@ print(accuracy_nn)
 print("\nROC AUC Score (Neural Network):")
 print(roc_auc_nn)
 
-# Sauvegarder le modèle et les objets nécessaires
+# Sauvegarder les modèles et les objets nécessaires
 joblib.dump(rf_model, './rf_model.pkl')
 joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
-joblib.dump(nn_model, './nn_model.pkl')
 
 # Prétraiter une nouvelle commit pour la prédiction
 def preprocess_new_commit(commit_text):
@@ -201,7 +203,7 @@ def predict_new_commit(commit_text, model_type='rf'):
         new_commit_prediction_proba = model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
         # Charger le modèle de réseau de neurones
-        model = joblib.load('./nn_model.pkl')
+        model = load_model('./nn_model.h5')
         # Faire la prédiction avec le modèle de réseau de neurones
         new_commit_prediction_proba = model.predict(new_commit_preprocessed)
     else:

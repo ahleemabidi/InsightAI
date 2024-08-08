@@ -6,7 +6,7 @@ on:
       - Haythem_Kchouk
 
 jobs:
-  predict:
+  predict_commit:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,9 +21,15 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy scikit-learn imbalanced-learn tensorflow
+        pip install pandas numpy scikit-learn imbalanced-learn tensorflow colorama
 
     - name: Run prediction script
       run: |
-        # Exemple d'exécution du script avec un message de commit de test
+        # Exécuter le script avec un message de commit de test
         python .github/workflows/predict_commit.py "Votre message de commit ici"
+      
+    - name: Check script output
+      run: |
+        # Capturer et afficher la sortie du script pour le débogage
+        python .github/workflows/predict_commit.py "Votre message de commit ici" > output.log
+        cat output.log

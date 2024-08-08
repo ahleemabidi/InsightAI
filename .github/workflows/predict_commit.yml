@@ -21,8 +21,9 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy scikit-learn imbalanced-learn tensorflow  # Ajoutez tensorflow ici
+        pip install pandas numpy scikit-learn imbalanced-learn tensorflow
 
     - name: Run prediction script
       run: |
+        # Exemple d'exécution du script avec un message de commit de test
         python .github/workflows/predict_commit.py "Votre message de commit ici"

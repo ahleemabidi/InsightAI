@@ -213,6 +213,9 @@ def predict_new_commit(commit_text, model_type='rf'):
     else:
         raise ValueError("Model type not supported")
     
+    # Print raw probabilities for debugging
+    print("Raw Prediction Probabilities: ", new_commit_prediction_proba)
+    
     # Decode classes
     decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
     
@@ -231,7 +234,6 @@ def predict_new_commit(commit_text, model_type='rf'):
         "\n".join(result_strings)
     )
     
-    print("Prediction Probabilities: ", new_commit_prediction_proba)
     return formatted_result
 
 # Read the commit message from command line arguments

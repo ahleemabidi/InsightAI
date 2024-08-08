@@ -210,9 +210,10 @@ def predict_new_commit(commit_text, model_type='rf'):
     
     print("Raw Prediction Probabilities: ", new_commit_prediction_proba)
     
-    decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
-    prediction = decoded_classes[np.argmax(new_commit_prediction_proba)]
-    formatted_result = f"Prediction: {prediction}, Probabilities: {new_commit_prediction_proba.flatten()}"
+    decoded_classes = le_class.classes_
+    prediction_proba = {decoded_classes[i]: new_commit_prediction_proba[0][i] * 100 for i in range(len(decoded_classes))}
+    
+    formatted_result = "\n".join([f"{prob:.2f}% de probabilité que le commit soit classé comme {cls}" for cls, prob in prediction_proba.items()])
     
     return formatted_result
 

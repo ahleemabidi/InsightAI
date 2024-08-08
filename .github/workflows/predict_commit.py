@@ -76,7 +76,7 @@ X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 # Hyperparameter tuning pour Random Forest
 param_grid = {
     'n_estimators': [100, 200, 300],
-    'max_features': ['auto', 'sqrt', 'log2'],
+    'max_features': ['sqrt', 'log2', None],  # Utilisez 'sqrt', 'log2' ou None
     'max_depth': [4, 6, 8, 10],
     'criterion': ['gini', 'entropy']
 }
@@ -181,49 +181,40 @@ def preprocess_new_commit(commit_text):
     for col in missing_cols:
         new_commit[col] = 0
 
-    # Réordonner les colonnes selon l'ordre attendu
-    new_commit_df = pd.DataFrame([new_commit], columns=column_names)
+    # Créer un DataFrame pour la prédiction
+    new_commit_df = pd.DataFrame([new_commit])
 
-    # Normaliser les données
+    # Normaliser les nouvelles données
     new_commit_scaled = scaler.transform(new_commit_df)
 
-    print(f"Processed New Commit Data: {new_commit_df}")
     return new_commit_scaled
 
-# Fonction pour prédire une nouvelle commit
-def predict_new_commit(commit_text, model_type='rf'):
-    # Charger l'encodeur des labels
-    le_class = joblib.load('./label_encoder_class.pkl')
-    
-    # Prétraiter la nouvelle commit
-    new_commit_preprocessed = preprocess_new_commit(commit_text)
+# Prédire avec le modèle de réseau de neurones
+def predict_new_commit(commit_text, model_type='nn'):
+    new_commit_scaled = preprocess_new_commit(commit_text)
     
     if model_type == 'rf':
-        # Charger le modèle Random Forest
         model = joblib.load('./rf_model.pkl')
-        # Faire la prédiction avec le modèle Random Forest
-        new_commit_prediction_proba = model.predict_proba(new_commit_preprocessed)
+        prediction_proba = model.predict_proba(new_commit_scaled)
+        predicted_class = model.predict(new_commit_scaled)
     elif model_type == 'nn':
-        # Charger le modèle de réseau de neurones
         model = joblib.load('./nn_model.pkl')
-        # Faire la prédiction avec le modèle de réseau de neurones
-        new_commit_prediction_proba = model.predict(new_commit_preprocessed)
+        prediction_proba = model.predict(new_commit_scaled)
+        predicted_class = np.argmax(prediction_proba, axis=1)
     else:
-        raise ValueError("Model type not supported")
+        raise ValueError("Modèle non pris en charge. Utilisez 'rf' pour Random Forest ou 'nn' pour Neural Network.")
     
     # Décoder les classes
-    decoded_classes = le_class.classes_
-    
-    # Créez le mappage entre les indices et les noms des catégories
+    decoded_classes = le_class.inverse_transform(range(len(le_class.classes_)))
     class_mapping = {i: class_name for i, class_name in enumerate(decoded_classes)}
-    
+
     # Afficher les résultats
     result_strings = []
-    for i, proba in enumerate(new_commit_prediction_proba[0]):
+    for i, proba in enumerate(prediction_proba[0]):
         class_name = class_mapping.get(i, "Unknown")
         result_strings.append(f"{proba*100:.2f}% de probabilité que le commit soit classé comme {class_name}.")
     
-    print("Prediction Probabilities: ", new_commit_prediction_proba)
+    print("Prediction Probabilities: ", prediction_proba)
     return "\n".join(result_strings)
 
 # Exemple de prédiction pour un nouveau commit

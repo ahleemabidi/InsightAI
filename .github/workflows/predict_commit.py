@@ -10,10 +10,7 @@ from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 import sys
-from colorama import Fore, Style, init
-
-# Initialize Colorama
-init()
+from termcolor import colored
 
 # Custom category for replacing class 0
 CUSTOM_CATEGORY = "Catégorie Personnalisée"
@@ -92,8 +89,8 @@ rf_grid = GridSearchCV(estimator=RandomForestClassifier(random_state=42), param_
 rf_grid.fit(X_train_sm, y_train_sm)
 
 # Best parameters and score
-print(Fore.GREEN + "Best Parameters for Random Forest: ", rf_grid.best_params_)
-print(Fore.GREEN + "Best Score for Random Forest: ", rf_grid.best_score_)
+print("Best Parameters for Random Forest: ", rf_grid.best_params_)
+print("Best Score for Random Forest: ", rf_grid.best_score_)
 
 # Create and train the Random Forest model with the best parameters
 rf_model = rf_grid.best_estimator_
@@ -108,16 +105,16 @@ class_report_rf = classification_report(y_test, y_pred_rf)
 accuracy_rf = accuracy_score(y_test, y_pred_rf)
 roc_auc_rf = roc_auc_score(y_test, y_pred_proba_rf, multi_class='ovr')
 
-print(Fore.YELLOW + "Confusion Matrix (Random Forest):")
+print("\nConfusion Matrix (Random Forest):")
 print(conf_matrix_rf)
 
-print(Fore.YELLOW + "\nClassification Report (Random Forest):")
+print("\nClassification Report (Random Forest):")
 print(class_report_rf)
 
-print(Fore.YELLOW + "\nAccuracy Score (Random Forest):")
+print("\nAccuracy Score (Random Forest):")
 print(accuracy_rf)
 
-print(Fore.YELLOW + "\nROC AUC Score (Random Forest):")
+print("\nROC AUC Score (Random Forest):")
 print(roc_auc_rf)
 
 # Create and train the neural network model
@@ -132,8 +129,8 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
-# Save the Keras model
-nn_model.save('./nn_model.h5')
+# Save the Keras model in the recommended format
+nn_model.save('./nn_model.keras')
 
 # Make predictions and evaluate the neural network model
 y_pred_nn = nn_model.predict(X_test)
@@ -146,16 +143,16 @@ class_report_nn = classification_report(y_test, y_pred_nn_classes)
 accuracy_nn = accuracy_score(y_test, y_pred_nn_classes)
 roc_auc_nn = roc_auc_score(y_test, y_pred_proba_nn, multi_class='ovr')
 
-print(Fore.CYAN + "Confusion Matrix (Neural Network):")
+print("\nConfusion Matrix (Neural Network):")
 print(conf_matrix_nn)
 
-print(Fore.CYAN + "\nClassification Report (Neural Network):")
+print("\nClassification Report (Neural Network):")
 print(class_report_nn)
 
-print(Fore.CYAN + "\nAccuracy Score (Neural Network):")
+print("\nAccuracy Score (Neural Network):")
 print(accuracy_nn)
 
-print(Fore.CYAN + "\nROC AUC Score (Neural Network):")
+print("\nROC AUC Score (Neural Network):")
 print(roc_auc_nn)
 
 # Save models and necessary objects
@@ -182,10 +179,7 @@ def preprocess_new_commit(commit_text):
     # Encode categorical columns with handling for unknown labels
     for col in categorical_columns:
         if new_commit[col] not in label_encoders[col].classes_:
-            # Print for debugging
-            print(Fore.RED + f"New commit value '{new_commit[col]}' for column '{col}' not found in encoder.")
-            # Use a default or placeholder value
-            new_commit[col] = 'UNKNOWN'
+            new_commit[col] = label_encoders[col].classes_[0]
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
     # Add any missing columns with default values
@@ -199,38 +193,34 @@ def preprocess_new_commit(commit_text):
     # Normalize the data
     new_commit_scaled = scaler.transform(new_commit_df)
 
-    print(Fore.GREEN + f"Processed New Commit Data: {new_commit_df}")
+    print(f"Processed New Commit Data: {new_commit_df}")
     return new_commit_scaled
 
 # Function to predict a new commit
 def predict_new_commit(commit_text, model_type='rf'):
-    # Preprocess the new commit
     new_commit_preprocessed = preprocess_new_commit(commit_text)
     
     if model_type == 'rf':
         model = joblib.load('./rf_model.pkl')
         new_commit_prediction_proba = model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
-        model = load_model('./nn_model.h5')
+        model = load_model('./nn_model.keras')
         new_commit_prediction_proba = model.predict(new_commit_preprocessed)
     else:
         raise ValueError("Model type not supported")
     
-    # Print raw probabilities for debugging
-    print(Fore.BLUE + "Raw Prediction Probabilities: ", new_commit_prediction_proba)
+    print("Raw Prediction Probabilities: ", new_commit_prediction_proba)
     
-    # Decode classes
-    decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
+    decoded_classes = le_class.classes_
+    prediction_proba = {decoded_classes[i]: new_commit_prediction_proba[0][i] * 100 for i in range(len(decoded_classes))}
     
-    # Format results
-    probabilities = new_commit_prediction_proba.flatten()
-    formatted_results = []
-    for i, prob in enumerate(probabilities):
-        class_name = decoded_classes[i]
-        formatted_results.append(f"{prob * 100:.2f}% de probabilité que le commit soit classé comme {class_name}")
-
-    # Return formatted results
-    return '\n'.join(formatted_results)
+    # Create formatted and colorful output
+    formatted_result = "\n".join([
+        colored(f"{prob:.2f}% de probabilité que le commit soit classé comme {cls}", 'green')
+        for cls, prob in prediction_proba.items()
+    ])
+    
+    return formatted_result
 
 # Read the commit message from command line arguments
 if len(sys.argv) > 1:
@@ -238,11 +228,9 @@ if len(sys.argv) > 1:
     model_type = 'rf'  # Default to Random Forest
     if len(sys.argv) > 2:
         model_type = sys.argv[2]
-    # Make the prediction with the specified model
     result = predict_new_commit(commit_message, model_type=model_type)
-    # Display the result with clear formatting
-    print(Fore.MAGENTA + "\n====================\n")
-    print(result)
-    print(Fore.MAGENTA + "\n====================\n")
+    print("\n====================\n")
+    print(f"{result}")
+    print("\n====================\n")
 else:
-    print(Fore.RED + "Veuillez fournir un message de commit en argument.")
+    print("Veuillez fournir un message de commit en argument.")

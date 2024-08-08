@@ -56,63 +56,40 @@ column_names = X.columns
 scaler = StandardScaler()
 X = scaler.fit_transform(X)
 
-# Diviser les données en ensembles d'entraînement et de test
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+# Diviser les données en ensemble d'entraînement et de test
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Ajuster dynamiquement k_neighbors
-def get_k_neighbors(y_train):
-    min_class_samples = min(y_train.value_counts())
-    return max(1, min_class_samples - 1)
+# Application de SMOTE pour traiter le déséquilibre des classes
+smote = SMOTE(random_state=42)
+X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
 
-k_neighbors = get_k_neighbors(y_train)
+# Entraîner un modèle de régression (Random Forest dans ce cas)
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model.fit(X_train_resampled, y_train_resampled)
 
-# Appliquer SMOTE pour équilibrer les classes sur l'ensemble d'entraînement
-smote = SMOTE(random_state=42, k_neighbors=k_neighbors)
-X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
+# Sauvegarder le modèle et les encoders
+model_path = './rf_model.pkl'
+joblib.dump(rf_model, model_path)
+joblib.dump(scaler, './scaler.pkl')
+joblib.dump(label_encoders, './label_encoders.pkl')
 
-# Créer et entraîner le modèle Random Forest avec les meilleurs paramètres
-param_grid_rf = {
-    'n_estimators': [100, 200, 300],
-    'max_features': ['sqrt', 'log2'],  # Correction ici
-    'max_depth': [4, 6, 8, 10],
-    'criterion': ['gini', 'entropy']
-}
-
-rf_grid = GridSearchCV(estimator=RandomForestClassifier(random_state=42), param_grid=param_grid_rf, cv=5, n_jobs=-1)
-rf_grid.fit(X_train_sm, y_train_sm)
-
-rf_model = rf_grid.best_estimator_
-rf_model.fit(X_train_sm, y_train_sm)
-
-# Sauvegarder le modèle et les encodeurs
-joblib.dump(label_encoders, 'label_encoders.pkl')
-joblib.dump(scaler, 'scaler.pkl')
-joblib.dump(rf_model, 'random_forest_model.pkl')
-joblib.dump(le_class, 'label_encoder_class.pkl')
-
-# Fonction pour prédire une nouvelle commit
-def predict_new_commit(commit_text, model_type='rf'):
-    # Prétraiter la nouvelle commit
-    new_commit_preprocessed = preprocess_new_commit(commit_text)
-    
+# Fonction pour prédire un nouveau commit
+def predict_new_commit(commit_message, model_type='rf'):
     if model_type == 'rf':
-        # Faire la prédiction avec le modèle Random Forest
-        new_commit_prediction_proba = rf_model.predict_proba(new_commit_preprocessed)
-
-    # Décoder les classes
-    decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
+        model = joblib.load(model_path)
+    else:
+        raise ValueError("Model type not supported")
     
-    # Mapping pour les noms des classes
-    class_mapping = {i: decoded_classes[i] for i in range(len(decoded_classes))}
+    # Prétraiter la nouvelle commit
+    new_commit_preprocessed = preprocess_new_commit(commit_message)
     
-    # Afficher les résultats
-    result_strings = []
-    for i, proba in enumerate(new_commit_prediction_proba[0]):
-        class_name = class_mapping.get(i, "Unknown")
-        result_strings.append(f"{proba*100:.2f}% de probabilité que le commit soit classé comme {class_name}.")
+    # Faire la prédiction
+    prediction = model.predict(new_commit_preprocessed)
     
-    print("Prediction Probabilities: ", new_commit_prediction_proba)
-    return "\n".join(result_strings)
+    # Décoder la prédiction
+    result = le_class.inverse_transform(prediction)
+    
+    return result[0]
 
 # Fonction pour prétraiter une nouvelle commit
 def preprocess_new_commit(commit_text):
@@ -136,7 +113,9 @@ if len(sys.argv) > 1:
     commit_message = sys.argv[1]
     # Effectuer la prédiction avec le modèle RF par défaut
     result = predict_new_commit(commit_message, model_type='rf')
-    # Afficher le résultat
-    print(result)
+    # Afficher le résultat avec un formatage clair
+    print("\n====================\n")
+    print(f"**Résultat de la Prédiction:** {result}")
+    print("\n====================\n")
 else:
     print("Veuillez fournir un message de commit en argument.")

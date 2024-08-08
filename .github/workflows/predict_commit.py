@@ -128,8 +128,8 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
-# Save the Keras model
-nn_model.save('./nn_model.h5')
+# Save the Keras model in the recommended format
+nn_model.save('./nn_model.keras')
 
 # Make predictions and evaluate the neural network model
 y_pred_nn = nn_model.predict(X_test)
@@ -178,8 +178,7 @@ def preprocess_new_commit(commit_text):
     # Encode categorical columns with handling for unknown labels
     for col in categorical_columns:
         if new_commit[col] not in label_encoders[col].classes_:
-            # Use a default or placeholder value
-            new_commit[col] = 'UNKNOWN'
+            new_commit[col] = label_encoders[col].classes_[0]
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
     # Add any missing columns with default values
@@ -198,22 +197,19 @@ def preprocess_new_commit(commit_text):
 
 # Function to predict a new commit
 def predict_new_commit(commit_text, model_type='rf'):
-    # Preprocess the new commit
     new_commit_preprocessed = preprocess_new_commit(commit_text)
     
     if model_type == 'rf':
         model = joblib.load('./rf_model.pkl')
         new_commit_prediction_proba = model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
-        model = load_model('./nn_model.h5')
+        model = load_model('./nn_model.keras')
         new_commit_prediction_proba = model.predict(new_commit_preprocessed)
     else:
         raise ValueError("Model type not supported")
     
-    # Print raw probabilities for debugging
     print("Raw Prediction Probabilities: ", new_commit_prediction_proba)
     
-    # Decode classes
     decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
     prediction = decoded_classes[np.argmax(new_commit_prediction_proba)]
     formatted_result = f"Prediction: {prediction}, Probabilities: {new_commit_prediction_proba.flatten()}"
@@ -226,9 +222,7 @@ if len(sys.argv) > 1:
     model_type = 'rf'  # Default to Random Forest
     if len(sys.argv) > 2:
         model_type = sys.argv[2]
-    # Make the prediction with the specified model
     result = predict_new_commit(commit_message, model_type=model_type)
-    # Display the result with clear formatting
     print("\n====================\n")
     print(f"{result}")
     print("\n====================\n")

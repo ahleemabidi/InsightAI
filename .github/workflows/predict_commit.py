@@ -201,14 +201,10 @@ def predict_new_commit(commit_text, model_type='rf'):
     new_commit_preprocessed = preprocess_new_commit(commit_text)
     
     if model_type == 'rf':
-        # Load the Random Forest model
         model = joblib.load('./rf_model.pkl')
-        # Make the prediction with the Random Forest model
         new_commit_prediction_proba = model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
-        # Load the neural network model
         model = load_model('./nn_model.h5')
-        # Make the prediction with the neural network model
         new_commit_prediction_proba = model.predict(new_commit_preprocessed)
     else:
         raise ValueError("Model type not supported")

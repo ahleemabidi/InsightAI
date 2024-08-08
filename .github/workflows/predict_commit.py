@@ -6,10 +6,13 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
 from imblearn.over_sampling import SMOTE
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 import sys
+
+# Catégorie personnalisée pour remplacer la catégorie 0
+CUSTOM_CATEGORY = "Catégorie Personnalisée"
 
 # Charger le fichier CSV
 file_path = './.github/workflows/DATA_Finale.csv'
@@ -76,7 +79,7 @@ X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 # Hyperparameter tuning pour Random Forest
 param_grid = {
     'n_estimators': [100, 200, 300],
-    'max_features': ['sqrt', 'log2', None],  # Utilisez 'sqrt', 'log2' ou None
+    'max_features': ['sqrt', 'log2'],
     'max_depth': [4, 6, 8, 10],
     'criterion': ['gini', 'entropy']
 }
@@ -125,6 +128,9 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
+# Sauvegarder le modèle Keras
+nn_model.save('./nn_model.h5')
+
 # Faire des prédictions et évaluer le modèle de réseau de neurones
 y_pred_nn = nn_model.predict(X_test)
 y_pred_proba_nn = y_pred_nn
@@ -148,12 +154,10 @@ print(accuracy_nn)
 print("\nROC AUC Score (Neural Network):")
 print(roc_auc_nn)
 
-# Sauvegarder le modèle et les objets nécessaires
+# Sauvegarder les modèles et les objets nécessaires
 joblib.dump(rf_model, './rf_model.pkl')
 joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
-joblib.dump(le_class, './label_encoder_class.pkl')  # Sauvegarder l'encodeur des labels
-joblib.dump(nn_model, './nn_model.pkl')
 
 # Prétraiter une nouvelle commit pour la prédiction
 def preprocess_new_commit(commit_text):
@@ -181,43 +185,59 @@ def preprocess_new_commit(commit_text):
     for col in missing_cols:
         new_commit[col] = 0
 
-    # Créer un DataFrame pour la prédiction
-    new_commit_df = pd.DataFrame([new_commit])
+    # Réordonner les colonnes selon l'ordre attendu
+    new_commit_df = pd.DataFrame([new_commit], columns=column_names)
 
-    # Normaliser les nouvelles données
+    # Normaliser les données
     new_commit_scaled = scaler.transform(new_commit_df)
 
+    print(f"Processed New Commit Data: {new_commit_df}")
     return new_commit_scaled
 
-# Prédire avec le modèle de réseau de neurones
-def predict_new_commit(commit_text, model_type='nn'):
-    new_commit_scaled = preprocess_new_commit(commit_text)
+# Fonction pour prédire une nouvelle commit
+def predict_new_commit(commit_text, model_type='rf'):
+    # Prétraiter la nouvelle commit
+    new_commit_preprocessed = preprocess_new_commit(commit_text)
     
     if model_type == 'rf':
+        # Charger le modèle Random Forest
         model = joblib.load('./rf_model.pkl')
-        prediction_proba = model.predict_proba(new_commit_scaled)
-        predicted_class = model.predict(new_commit_scaled)
+        # Faire la prédiction avec le modèle Random Forest
+        new_commit_prediction_proba = model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
-        model = joblib.load('./nn_model.pkl')
-        prediction_proba = model.predict(new_commit_scaled)
-        predicted_class = np.argmax(prediction_proba, axis=1)
+        # Charger le modèle de réseau de neurones
+        model = load_model('./nn_model.h5')
+        # Faire la prédiction avec le modèle de réseau de neurones
+        new_commit_prediction_proba = model.predict(new_commit_preprocessed)
     else:
-        raise ValueError("Modèle non pris en charge. Utilisez 'rf' pour Random Forest ou 'nn' pour Neural Network.")
+        raise ValueError("Model type not supported")
     
     # Décoder les classes
-    decoded_classes = le_class.inverse_transform(range(len(le_class.classes_)))
-    class_mapping = {i: class_name for i, class_name in enumerate(decoded_classes)}
-
+    decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
+    
+    # Mapping pour les noms des classes avec la catégorie personnalisée
+    class_mapping = {i: (CUSTOM_CATEGORY if i == 0 else decoded_classes[i]) for i in range(len(decoded_classes))}
+    
     # Afficher les résultats
     result_strings = []
-    for i, proba in enumerate(prediction_proba[0]):
+    for i, proba in enumerate(new_commit_prediction_proba[0]):
         class_name = class_mapping.get(i, "Unknown")
         result_strings.append(f"{proba*100:.2f}% de probabilité que le commit soit classé comme {class_name}.")
     
-    print("Prediction Probabilities: ", prediction_proba)
+    print("Prediction Probabilities: ", new_commit_prediction_proba)
     return "\n".join(result_strings)
 
-# Exemple de prédiction pour un nouveau commit
-if __name__ == "__main__":
-    commit_text = "Votre message de commit ici"
-    print(predict_new_commit(commit_text, model_type='nn'))  # Utilisez 'rf' pour Random Forest
+# Lire le message du commit depuis les arguments de la ligne de commande
+if len(sys.argv) > 1:
+    commit_message = sys.argv[1]
+    model_type = 'rf'  # Par défaut, utiliser Random Forest
+    if len(sys.argv) > 2:
+        model_type = sys.argv[2]
+    # Effectuer la prédiction avec le modèle spécifié
+    result = predict_new_commit(commit_message, model_type=model_type)
+    # Afficher le résultat avec un formatage clair
+    print("\n====================\n")
+    print(f"**Résultat de la Prédiction:** {result}")
+    print("\n====================\n")
+else:
+    print("Veuillez fournir un message de commit en argument.")

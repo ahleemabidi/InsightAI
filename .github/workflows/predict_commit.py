@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
 from imblearn.over_sampling import SMOTE
-from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 import sys
@@ -76,7 +76,7 @@ X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 # Hyperparameter tuning pour Random Forest
 param_grid = {
     'n_estimators': [100, 200, 300],
-    'max_features': ['sqrt', 'log2'],
+    'max_features': ['auto', 'sqrt', 'log2'],
     'max_depth': [4, 6, 8, 10],
     'criterion': ['gini', 'entropy']
 }
@@ -125,9 +125,6 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
-# Sauvegarder le modèle Keras
-nn_model.save('./nn_model.h5')
-
 # Faire des prédictions et évaluer le modèle de réseau de neurones
 y_pred_nn = nn_model.predict(X_test)
 y_pred_proba_nn = y_pred_nn
@@ -151,10 +148,12 @@ print(accuracy_nn)
 print("\nROC AUC Score (Neural Network):")
 print(roc_auc_nn)
 
-# Sauvegarder les modèles et les objets nécessaires
+# Sauvegarder le modèle et les objets nécessaires
 joblib.dump(rf_model, './rf_model.pkl')
 joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
+joblib.dump(le_class, './label_encoder_class.pkl')  # Sauvegarder l'encodeur des labels
+joblib.dump(nn_model, './nn_model.pkl')
 
 # Prétraiter une nouvelle commit pour la prédiction
 def preprocess_new_commit(commit_text):
@@ -193,6 +192,9 @@ def preprocess_new_commit(commit_text):
 
 # Fonction pour prédire une nouvelle commit
 def predict_new_commit(commit_text, model_type='rf'):
+    # Charger l'encodeur des labels
+    le_class = joblib.load('./label_encoder_class.pkl')
+    
     # Prétraiter la nouvelle commit
     new_commit_preprocessed = preprocess_new_commit(commit_text)
     
@@ -203,17 +205,17 @@ def predict_new_commit(commit_text, model_type='rf'):
         new_commit_prediction_proba = model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
         # Charger le modèle de réseau de neurones
-        model = load_model('./nn_model.h5')
+        model = joblib.load('./nn_model.pkl')
         # Faire la prédiction avec le modèle de réseau de neurones
         new_commit_prediction_proba = model.predict(new_commit_preprocessed)
     else:
         raise ValueError("Model type not supported")
     
     # Décoder les classes
-    decoded_classes = le_class.inverse_transform(np.arange(len(le_class.classes_)))
+    decoded_classes = le_class.classes_
     
-    # Mapping pour les noms des classes
-    class_mapping = {i: decoded_classes[i] for i in range(len(decoded_classes))}
+    # Créez le mappage entre les indices et les noms des catégories
+    class_mapping = {i: class_name for i, class_name in enumerate(decoded_classes)}
     
     # Afficher les résultats
     result_strings = []
@@ -224,17 +226,7 @@ def predict_new_commit(commit_text, model_type='rf'):
     print("Prediction Probabilities: ", new_commit_prediction_proba)
     return "\n".join(result_strings)
 
-# Lire le message du commit depuis les arguments de la ligne de commande
-if len(sys.argv) > 1:
-    commit_message = sys.argv[1]
-    model_type = 'rf'  # Par défaut, utiliser Random Forest
-    if len(sys.argv) > 2:
-        model_type = sys.argv[2]
-    # Effectuer la prédiction avec le modèle spécifié
-    result = predict_new_commit(commit_message, model_type=model_type)
-    # Afficher le résultat avec un formatage clair
-    print("\n====================\n")
-    print(f"**Résultat de la Prédiction:** {result}")
-    print("\n====================\n")
-else:
-    print("Veuillez fournir un message de commit en argument.")
+# Exemple de prédiction pour un nouveau commit
+if __name__ == "__main__":
+    commit_text = "Votre message de commit ici"
+    print(predict_new_commit(commit_text, model_type='nn'))  # Utilisez 'rf' pour Random Forest

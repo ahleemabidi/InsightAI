@@ -177,8 +177,9 @@ def preprocess_new_commit(commit_text):
     # Encoder les colonnes catégorielles avec une gestion des labels inconnus
     for col in categorical_columns:
         if new_commit[col] not in label_encoders[col].classes_:
-            label_encoders[col].classes_ = np.append(label_encoders[col].classes_, new_commit[col])
-        new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
+            new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
+        else:
+            new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
     # Ajouter toutes les colonnes manquantes avec des valeurs par défaut
     missing_cols = set(column_names) - set(new_commit.keys())

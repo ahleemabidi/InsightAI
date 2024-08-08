@@ -24,4 +24,4 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run prediction script
-      run: python scripts/predict.py Dataset/Commits.csv
+      run: python scripts/Random_forest.ipynb

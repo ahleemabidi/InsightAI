@@ -28,5 +28,5 @@ jobs:
 
     - name: Run tests
       run: |
-        python test_pipeline.py
+        python probability_prediction.py
 

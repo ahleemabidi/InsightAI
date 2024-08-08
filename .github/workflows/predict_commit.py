@@ -223,10 +223,16 @@ def predict_new_commit(commit_text, model_type='rf'):
     result_strings = []
     for i, proba in enumerate(new_commit_prediction_proba[0]):
         class_name = class_mapping.get(i, "Unknown")
-        result_strings.append(f"{proba*100:.2f}% de probabilité que le commit soit classé comme {class_name}.")
+        result_strings.append(f"- **{class_name}**: {proba*100:.2f}%")
+
+    # Format the final output
+    formatted_result = (
+        "### **Résultat de la Prédiction:**\n\n" +
+        "\n".join(result_strings)
+    )
     
     print("Prediction Probabilities: ", new_commit_prediction_proba)
-    return "\n".join(result_strings)
+    return formatted_result
 
 # Read the commit message from command line arguments
 if len(sys.argv) > 1:
@@ -238,7 +244,7 @@ if len(sys.argv) > 1:
     result = predict_new_commit(commit_message, model_type=model_type)
     # Display the result with clear formatting
     print("\n====================\n")
-    print(f"**Résultat de la Prédiction:** {result}")
+    print(f"{result}")
     print("\n====================\n")
 else:
     print("Veuillez fournir un message de commit en argument.")

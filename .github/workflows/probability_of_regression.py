@@ -1,7 +1,13 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import mean_squared_error
 
 # Chargement du dataset des commits
 file_path = './DATA_Finale.csv'
@@ -65,7 +71,7 @@ y_pred = pipeline.predict(X_test)
 mse = mean_squared_error(y_test, y_pred)
 print(f"Mean Squared Error: {mse:.2f}")
 
-# Pourcentage de régression (exemple : normalisé entre 0 et 100)
+# Préparation des données pour affichage
 df_test = X_test.copy()
 df_test['Actual'] = y_test.values
 df_test['Predicted'] = y_pred

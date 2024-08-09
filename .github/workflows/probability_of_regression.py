@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error
@@ -27,6 +27,10 @@ data = data.drop('Date', axis=1)
 # Sélection des features et de la cible
 features = ['Year', 'Month', 'Day', 'Author', 'message', 'functions']  # À adapter selon votre dataset
 target = 'Classification'  # La colonne que vous souhaitez prédire
+
+# Convertir les valeurs cibles en numériques
+le = LabelEncoder()
+data[target] = le.fit_transform(data[target])
 
 # Séparation des données en ensembles d'entraînement et de test
 X = data[features]
@@ -68,7 +72,7 @@ mse = mean_squared_error(y_test, y_pred)
 print(f"Mean Squared Error: {mse:.2f}")
 
 # Pourcentage de régression (exemple : normalisé entre 0 et 100)
-# Si votre cible est binaire ou normalisée, vous devrez ajuster cela.
+# Ajustez le calcul selon les valeurs de votre modèle
 df_test = X_test.copy()
 df_test['Actual'] = y_test.values
 df_test['Predicted'] = y_pred

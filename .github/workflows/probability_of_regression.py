@@ -1,10 +1,10 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -51,10 +51,10 @@ preprocessor = ColumnTransformer(
         ('cat', categorical_transformer, categorical_features)
     ])
 
-# Création du pipeline complet avec le modèle Random Forest
+# Création du pipeline complet avec le modèle Random Forest Regressor
 pipeline = Pipeline(steps=[
     ('preprocessor', preprocessor),
-    ('classifier', RandomForestClassifier(random_state=42, n_estimators=100))
+    ('regressor', RandomForestRegressor(random_state=42, n_estimators=100))
 ])
 
 # Entraînement du modèle
@@ -63,39 +63,31 @@ pipeline.fit(X_train, y_train)
 # Prédictions sur l'ensemble de test
 y_pred = pipeline.predict(X_test)
 
-# Prédiction des probabilités de chaque classe
-y_proba = pipeline.predict_proba(X_test)
+# Calcul du MSE (Mean Squared Error)
+mse = mean_squared_error(y_test, y_pred)
+print(f"Mean Squared Error: {mse:.2f}")
 
-# Probabilité de la classe "régression" (1 si binaire 0/1)
-regression_proba = y_proba[:, 1]  # Modifiez l'indice selon votre étiquette de régression
-
-# Calcul du pourcentage de régression après chaque commit
+# Pourcentage de régression (exemple : normalisé entre 0 et 100)
+# Si votre cible est binaire ou normalisée, vous devrez ajuster cela.
 df_test = X_test.copy()
 df_test['Actual'] = y_test.values
 df_test['Predicted'] = y_pred
-df_test['Regression_Probability'] = regression_proba
-
-df_test['Percentage_Regression'] = df_test['Regression_Probability'] * 100
-
-# Afficher les résultats
-print("\nClassification Report:\n", classification_report(y_test, y_pred, zero_division=1))
-print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
 
 # Afficher le pourcentage de régression pour le dernier commit uniquement
-# S'assurer que df_test est trié pour que le dernier commit soit le dernier index
 last_commit_index = df_test.index[-1]
 last_commit_row = df_test.loc[last_commit_index]
 
+# Supposons que vous souhaitiez afficher la valeur prédite comme pourcentage
 print(f"\nDernier Commit (Index {last_commit_index}):")
-print(f"Pourcentage de régression après ce commit = {last_commit_row['Percentage_Regression']:.2f}%")
+print(f"Pourcentage de régression après ce commit = {last_commit_row['Predicted']:.2f}%")
 
-# Visualisation des pourcentages de régression (si vous souhaitez également voir la distribution)
+# Visualisation des valeurs prédites pour les commits
 plt.figure(figsize=(12, 8))
-sns.scatterplot(x=df_test.index, y='Percentage_Regression', data=df_test, hue='Predicted', palette='viridis', s=100)
-plt.title('Pourcentage de Régression pour chaque Commit (Random Forest)')
+sns.scatterplot(x=df_test.index, y='Predicted', data=df_test, hue='Actual', palette='viridis', s=100)
+plt.title('Valeurs Prédites pour chaque Commit (Random Forest Regressor)')
 plt.xlabel('Index des Commits')
-plt.ylabel('Pourcentage de Régression')
-plt.legend(title='Classification', loc='upper right', bbox_to_anchor=(1.3, 1))
+plt.ylabel('Valeur Prédite')
+plt.legend(title='Valeur Réelle', loc='upper right', bbox_to_anchor=(1.3, 1))
 plt.xticks(rotation=40)
 plt.tight_layout()
 plt.show()

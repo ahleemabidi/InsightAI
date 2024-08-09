@@ -7,7 +7,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
 
 # Chargement du dataset des commits
 file_path = './DATA_Finale.csv'
@@ -67,9 +67,11 @@ pipeline.fit(X_train, y_train)
 # Prédictions sur l'ensemble de test
 y_pred = pipeline.predict(X_test)
 
-# Calcul du MSE (Mean Squared Error)
+# Calcul du MSE (Mean Squared Error) et R^2 Score
 mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
 print(f"Mean Squared Error: {mse:.2f}")
+print(f"R^2 Score: {r2:.2f}")
 
 # Préparation des données pour affichage
 df_test = X_test.copy()

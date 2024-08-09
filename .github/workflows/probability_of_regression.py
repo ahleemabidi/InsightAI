@@ -35,7 +35,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 # Définition des étapes de transformation
 numeric_features = ['Year', 'Month', 'Day']
-categorical_features = ['Author']
+categorical_features = ['Author', 'message', 'functions']
 
 numeric_transformer = Pipeline(steps=[
     ('scaler', StandardScaler())  # StandardScaler pour les features numériques
@@ -75,17 +75,21 @@ df_test['Actual'] = y_test.values
 df_test['Predicted'] = y_pred
 df_test['Regression_Probability'] = regression_proba
 
-df_test['Percentage_Regression'] = df_test['Regression_Probability'].apply(lambda x: x * 100)
+df_test['Percentage_Regression'] = df_test['Regression_Probability'] * 100
 
 # Afficher les résultats
 print("\nClassification Report:\n", classification_report(y_test, y_pred, zero_division=1))
 print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
 
-# Imprimer le pourcentage de régression après chaque commit
-for i, row in df_test.iterrows():
-    print(f"Commit {i+1}: Pourcentage de régression après ce commit = {row['Percentage_Regression']:.2f}%")
+# Afficher le pourcentage de régression pour le dernier commit uniquement
+# S'assurer que df_test est trié pour que le dernier commit soit le dernier index
+last_commit_index = df_test.index[-1]
+last_commit_row = df_test.loc[last_commit_index]
 
-# Visualisation des pourcentages de régression
+print(f"\nDernier Commit (Index {last_commit_index}):")
+print(f"Pourcentage de régression après ce commit = {last_commit_row['Percentage_Regression']:.2f}%")
+
+# Visualisation des pourcentages de régression (si vous souhaitez également voir la distribution)
 plt.figure(figsize=(12, 8))
 sns.scatterplot(x=df_test.index, y='Percentage_Regression', data=df_test, hue='Predicted', palette='viridis', s=100)
 plt.title('Pourcentage de Régression pour chaque Commit (Random Forest)')

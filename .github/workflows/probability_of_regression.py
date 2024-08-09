@@ -3,13 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import classification_report, confusion_matrix
 
-# Chargement du dataset des commits
+# Chargement du dataset
 file_path = './DATA_Finale.csv'
 data = pd.read_csv(file_path)
 
@@ -25,12 +25,16 @@ data['Day'] = data['Date'].dt.day
 data = data.drop('Date', axis=1)
 
 # Sélection des features et de la cible
-features = ['Year', 'Month', 'Day', 'Author', 'message', 'functions']  # À adapter selon votre dataset
-target = 'Classification'  # La colonne que vous souhaitez prédire
+features = ['Year', 'Month', 'Day', 'Author', 'message', 'functions']
+target = 'Classification'
 
 # Convertir les valeurs cibles en numériques
 le = LabelEncoder()
 data[target] = le.fit_transform(data[target])
+
+# Vérification de la distribution des cibles
+print("Distribution des cibles:")
+print(data[target].value_counts())
 
 # Séparation des données en ensembles d'entraînement et de test
 X = data[features]
@@ -42,11 +46,11 @@ numeric_features = ['Year', 'Month', 'Day']
 categorical_features = ['Author', 'message', 'functions']
 
 numeric_transformer = Pipeline(steps=[
-    ('scaler', StandardScaler())  # StandardScaler pour les features numériques
+    ('scaler', StandardScaler())
 ])
 
 categorical_transformer = Pipeline(steps=[
-    ('onehot', OneHotEncoder(handle_unknown='ignore'))  # OneHotEncoder pour les features catégorielles
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))
 ])
 
 preprocessor = ColumnTransformer(
@@ -55,10 +59,10 @@ preprocessor = ColumnTransformer(
         ('cat', categorical_transformer, categorical_features)
     ])
 
-# Création du pipeline complet avec le modèle Random Forest Regressor
+# Création du pipeline complet avec le modèle Random Forest Classifier
 pipeline = Pipeline(steps=[
     ('preprocessor', preprocessor),
-    ('regressor', RandomForestRegressor(random_state=42, n_estimators=100))
+    ('classifier', RandomForestClassifier(random_state=42, n_estimators=100))
 ])
 
 # Entraînement du modèle
@@ -67,26 +71,29 @@ pipeline.fit(X_train, y_train)
 # Prédictions sur l'ensemble de test
 y_pred = pipeline.predict(X_test)
 
-# Calcul du MSE (Mean Squared Error) et R^2 Score
-mse = mean_squared_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
-print(f"Mean Squared Error: {mse:.2f}")
-print(f"R^2 Score: {r2:.2f}")
+# Évaluation du modèle
+print("Classification Report:")
+print(classification_report(y_test, y_pred, target_names=le.classes_))
+
+print("Confusion Matrix:")
+conf_matrix = confusion_matrix(y_test, y_pred)
+print(conf_matrix)
 
 # Préparation des données pour affichage
 df_test = X_test.copy()
 df_test['Actual'] = y_test.values
 df_test['Predicted'] = y_pred
 
-# Afficher les pourcentages pour tous les commits
+# Afficher les valeurs prédites pour quelques commits
+print("Exemples de prédictions:")
+print(df_test[['Predicted', 'Actual']].head(20))
+
+# Visualisation des données
 plt.figure(figsize=(12, 8))
-sns.scatterplot(x=df_test.index, y='Predicted', data=df_test, hue='Actual', palette='viridis', s=100)
-plt.title('Valeurs Prédites pour chaque Commit (Random Forest Regressor)')
-plt.xlabel('Index des Commits')
-plt.ylabel('Valeur Prédite')
-plt.legend(title='Valeur Réelle', loc='upper right', bbox_to_anchor=(1.3, 1))
-plt.xticks(rotation=40)
-plt.tight_layout()
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=le.classes_, yticklabels=le.classes_)
+plt.title('Matrice de Confusion (Random Forest Classifier)')
+plt.xlabel('Prédictions')
+plt.ylabel('Valeurs Réelles')
 plt.show()
 
 # Afficher le pourcentage de régression pour le dernier commit uniquement

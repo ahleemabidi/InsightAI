@@ -24,8 +24,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirement.txt
+          pip install -r .github/workflows/requirements.txt
 
       - name: Run Python script
-        run: python probability_of_regression.py
+        run: python .github/workflows/probability_of_regression.py
 

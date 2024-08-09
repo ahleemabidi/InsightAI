@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-# Chargement du dataset des commits (assurez-vous d'avoir préparé votre dataset selon les étapes nécessaires)
+# Chargement du dataset des commits
 file_path = './DATA_Finale.csv'
 data = pd.read_csv(file_path)
 
@@ -69,21 +69,28 @@ y_proba = pipeline.predict_proba(X_test)
 # Probabilité de la classe "régression" (1 si vous utilisez un binaire 0/1)
 regression_proba = y_proba[:, 1]  # Modifiez l'indice selon votre étiquette de régression
 
-# Évaluation du modèle
-print("Accuracy :", accuracy_score(y_test, y_pred))
+# Calculer le pourcentage de régression après chaque commit
+# Assurez-vous que les données sont triées par commit ou date si nécessaire
+df_test = X_test.copy()
+df_test['Actual'] = y_test
+df_test['Predicted'] = y_pred
+df_test['Regression_Probability'] = regression_proba
+df_test['Percentage_Regression'] = df_test['Regression_Probability'].rolling(window=2).apply(lambda x: (x[1] > 0.5) * 100 if not pd.isnull(x[1]) else np.nan)
+
+# Afficher les résultats
 print("\nClassification Report:\n", classification_report(y_test, y_pred, zero_division=1))
 print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
 
-# Imprimer la probabilité de régression pour chaque commit
-for i, prob in enumerate(regression_proba):
-    print(f"Commit {i+1}: Probabilité de régression = {prob:.2f}")
+# Imprimer le pourcentage de régression après chaque commit
+for i, row in df_test.iterrows():
+    print(f"Commit {i+1}: Pourcentage de régression après ce commit = {row['Percentage_Regression']:.2f}%")
 
 # Visualisation des probabilités de régression avec seaborn
 plt.figure(figsize=(12, 8))
-sns.scatterplot(x=X_test.index, y=regression_proba, hue=y_pred, palette='viridis', s=100)
-plt.title('Probabilité de Régression pour chaque Commit (Random Forest)')
+sns.scatterplot(x=df_test.index, y='Percentage_Regression', data=df_test, hue='Predicted', palette='viridis', s=100)
+plt.title('Pourcentage de Régression pour chaque Commit (Random Forest)')
 plt.xlabel('Index des Commits')
-plt.ylabel('Probabilité de Régression')
+plt.ylabel('Pourcentage de Régression')
 plt.legend(title='Classification', loc='upper right', bbox_to_anchor=(1.3, 1))
 plt.xticks(rotation=40)
 plt.tight_layout()

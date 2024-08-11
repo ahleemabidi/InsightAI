@@ -9,7 +9,8 @@ from imblearn.over_sampling import SMOTE
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
-from sklearn.feature_extraction.text import TfidfVectorizer
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 import sys
 from termcolor import colored
 import os
@@ -136,9 +137,12 @@ joblib.dump(label_encoders, './label_encoders.pkl')
 joblib.dump(le_class, './label_encoder_class.pkl')  # Save the label encoder for classification
 
 # Create and fit TF-IDF Vectorizer on commit messages
-vectorizer = TfidfVectorizer(max_features=100)
-vectorizer.fit(data['message'])
-joblib.dump(vectorizer, './vectorizer.pkl')  # Save the vectorizer
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(data['message'])
+X_tfidf = tokenizer.texts_to_sequences(data['message'])
+X_tfidf = pad_sequences(X_tfidf, padding='post')
+
+joblib.dump(tokenizer, './tokenizer.pkl')  # Save the tokenizer
 
 # Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
@@ -162,9 +166,12 @@ def preprocess_new_commit(commit_text):
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
     # Ajoute des caractéristiques TF-IDF du message de commit
-    vectorizer = joblib.load('./vectorizer.pkl')
-    tfidf_vector = vectorizer.transform([commit_text]).toarray()[0]
-    for i, value in enumerate(tfidf_vector):
+    tokenizer = joblib.load('./tokenizer.pkl')
+    sequences = tokenizer.texts_to_sequences([commit_text])
+    padded_sequences = pad_sequences(sequences, maxlen=X_tfidf.shape[1], padding='post')
+    
+    tfidf_features = padded_sequences[0]
+    for i, value in enumerate(tfidf_features):
         new_commit[f'tfidf_feature_{i}'] = value
 
     # Ajouter des colonnes manquantes avec des valeurs par défaut
@@ -180,6 +187,8 @@ def preprocess_new_commit(commit_text):
     new_commit_scaled = scaler.transform(new_commit_df)
 
     print(f"Processed New Commit Data: {new_commit_df}")
+    print(f"Normalized Data: {new_commit_scaled}")
+
     return new_commit_scaled
 
 # Fonction pour prédire un nouveau commit
@@ -203,7 +212,7 @@ def predict_new_commit(commit_text, model_type='rf'):
     }
     
     # Afficher les prédictions à la console
-    print("\nPredictions:")
+    print(f"\nPredictions with {model_type.upper()} Model:")
     for class_name, proba in predictions.items():
         print(f"{class_name}: {proba*100:.2f}%")
 

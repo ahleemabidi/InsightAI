@@ -184,36 +184,26 @@ def preprocess_new_commit(commit_message):
     new_commit_df = new_commit_df[all_columns]
 
     # Normaliser les données
+    scaler = StandardScaler()
     new_commit_numeric = np.zeros((1, numeric_column_names))
-    new_commit_features = np.hstack([new_commit_numeric, new_commit_df])
+    new_commit_preprocessed = np.hstack([scaler.transform(new_commit_numeric), new_commit_df])
 
-    return new_commit_features
+    return new_commit_preprocessed
 
-# Prédiction avec les modèles
-def predict_new_commit(commit_message):
-    new_commit_preprocessed = preprocess_new_commit(commit_message)
+# Exemple d'utilisation pour la prédiction
+commit_message = "Votre message de commit ici"
+new_commit_preprocessed = preprocess_new_commit(commit_message)
 
-    # Faire la prédiction avec les deux modèles
-    new_commit_prediction_proba_rf = rf_model.predict_proba(new_commit_preprocessed)
-    new_commit_prediction_proba_nn = nn_model.predict(new_commit_preprocessed)
+# Prédictions Random Forest
+new_commit_prediction_proba_rf = rf_model.predict_proba(new_commit_preprocessed)
+print("\nPrediction Random Forest :")
+for i, proba in enumerate(new_commit_prediction_proba_rf[0]):
+    class_name = class_index_mapping[i]
+    print(f"{class_name} : {proba * 100:.2f}%")
 
-    # Résultats Random Forest
-    print("\nPrediction Random Forest :")
-    for i, proba in enumerate(new_commit_prediction_proba_rf[0]):
-        class_name = class_index_mapping[i]
-        print(f"{class_name} : {proba * 100:.2f}%")
-
-    # Résultats Neural Network
-    print("\nPrediction Neural Network :")
-    for i, proba in enumerate(new_commit_prediction_proba_nn[0]):
-        class_name = class_index_mapping[i]
-        print(f"{class_name} : {proba * 100:.2f}%")
-
-# Lecture du message du commit depuis les arguments
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Erreur : Aucun message de commit fourni.")
-        sys.exit(1)
-
-    commit_message = sys.argv[1]
-    predict_new_commit(commit_message)
+# Prédictions Neural Network
+new_commit_prediction_proba_nn = nn_model.predict(new_commit_preprocessed)
+print("\nPrediction Neural Network :")
+for i, proba in enumerate(new_commit_prediction_proba_nn[0]):
+    class_name = class_index_mapping[i]
+    print(f"{class_name} : {proba * 100:.2f}%")

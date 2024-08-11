@@ -13,9 +13,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import sys
 from termcolor import colored
 
-# Custom category for replacing class 0
-CUSTOM_CATEGORY = "Catégorie Personnalisée"
-
 # Load the CSV file
 file_path = './.github/workflows/DATA_Finale.csv'
 data = pd.read_csv(file_path)
@@ -224,7 +221,7 @@ def predict_new_commit(commit_text, model_type='rf'):
     decoded_classes = le_class.classes_
     prediction_proba = {decoded_classes[i]: new_commit_prediction_proba[0][i] * 100 for i in range(len(decoded_classes))}
     
-    # Create formatted and colorful output
+    # Create formatted and colorful output, replacing class 0 with its actual meaning
     formatted_result = "\n".join([
         colored(f"{prob:.2f}% de probabilité que le commit soit classé comme {cls}", 'green')
         for cls, prob in prediction_proba.items()

@@ -7,7 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
 from imblearn.over_sampling import SMOTE
 from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.utils import to_categorical
 from sklearn.feature_extraction.text import TfidfVectorizer
 import sys
@@ -115,13 +115,15 @@ print(accuracy_rf)
 print("\nROC AUC Score (Random Forest):")
 print(roc_auc_rf)
 
-# Create and train the neural network model
+# Create and train the neural network model with Dropout
 y_train_sm_one_hot = to_categorical(y_train_sm)
 y_test_one_hot = to_categorical(y_test)
 
 nn_model = Sequential()
 nn_model.add(Dense(64, input_dim=X_train_sm.shape[1], activation='relu'))
+nn_model.add(Dropout(0.5))  # Add Dropout layer
 nn_model.add(Dense(32, activation='relu'))
+nn_model.add(Dropout(0.5))  # Add another Dropout layer
 nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
@@ -221,7 +223,7 @@ def predict_new_commit(commit_text, model_type='rf'):
     decoded_classes = le_class.classes_
     prediction_proba = {decoded_classes[i]: new_commit_prediction_proba[0][i] * 100 for i in range(len(decoded_classes))}
     
-    # Create formatted and colorful output, replacing class 0 with its actual meaning
+    # Create formatted and colorful output
     formatted_result = "\n".join([
         colored(f"{prob:.2f}% de probabilité que le commit soit classé comme {cls}", 'green')
         for cls, prob in prediction_proba.items()
@@ -229,18 +231,7 @@ def predict_new_commit(commit_text, model_type='rf'):
     
     return formatted_result
 
-# Read the commit message from command line arguments
-if len(sys.argv) > 1:
-    commit_message = sys.argv[1]
-else:
-    commit_message = "correction bug"  # Default message for testing
-
-# Predict using the Random Forest model
-rf_prediction = predict_new_commit(commit_message, model_type='rf')
-print("\nPredictions (Random Forest):")
-print(rf_prediction)
-
-# Predict using the Neural Network model
-nn_prediction = predict_new_commit(commit_message, model_type='nn')
-print("\nPredictions (Neural Network):")
-print(nn_prediction)
+# Test the prediction function
+commit_message = "Fixes issue with payment gateway integration"
+print(predict_new_commit(commit_message, model_type='rf'))
+print(predict_new_commit(commit_message, model_type='nn'))

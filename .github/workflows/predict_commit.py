@@ -10,7 +10,6 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 from sklearn.feature_extraction.text import TfidfVectorizer
-from tensorflow.keras.models import save_model, load_model
 import sys
 from termcolor import colored
 import os
@@ -143,10 +142,10 @@ joblib.dump(vectorizer, './vectorizer.pkl')  # Save the vectorizer
 
 # Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
-    # Create a default dictionary with placeholder values for all features
+    # Crée un dictionnaire par défaut avec des valeurs de remplacement pour toutes les fonctionnalités
     new_commit = {
         'Date': pd.Timestamp.now(),
-        'Duration': 0,  # Example: duration in seconds
+        'Duration': 0,  # Exemple : durée en secondes
         'User': 'UNKNOWN',
         'Author': 'UNKNOWN',
         'State': 'UNKNOWN',
@@ -156,34 +155,34 @@ def preprocess_new_commit(commit_text):
         'Day': pd.Timestamp.now().day
     }
 
-    # Encode categorical columns with handling for unknown labels
+    # Encode les colonnes catégorielles avec gestion des labels inconnus
     for col in categorical_columns:
         if new_commit[col] not in label_encoders[col].classes_:
-            new_commit[col] = label_encoders[col].classes_[0]
+            new_commit[col] = label_encoders[col].classes_[0]  # Utiliser une valeur par défaut pour les labels inconnus
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
-    # Add TF-IDF features from the commit message
+    # Ajoute des caractéristiques TF-IDF du message de commit
     vectorizer = joblib.load('./vectorizer.pkl')
     tfidf_vector = vectorizer.transform([commit_text]).toarray()[0]
     for i, value in enumerate(tfidf_vector):
         new_commit[f'tfidf_feature_{i}'] = value
 
-    # Add any missing columns with default values
+    # Ajouter des colonnes manquantes avec des valeurs par défaut
     missing_cols = set(column_names) - set(new_commit.keys())
     for col in missing_cols:
         new_commit[col] = 0
 
-    # Reorder columns to match the expected order
+    # Réorganiser les colonnes pour correspondre à l'ordre attendu
     new_commit_df = pd.DataFrame([new_commit], columns=column_names)
 
-    # Normalize the data
+    # Normaliser les données
     scaler = joblib.load('./scaler.pkl')
     new_commit_scaled = scaler.transform(new_commit_df)
 
     print(f"Processed New Commit Data: {new_commit_df}")
     return new_commit_scaled
 
-# Function to predict a new commit
+# Fonction pour prédire un nouveau commit
 def predict_new_commit(commit_text, model_type='rf'):
     new_commit_preprocessed = preprocess_new_commit(commit_text)
     
@@ -203,12 +202,12 @@ def predict_new_commit(commit_text, model_type='rf'):
         class_name: proba for class_name, proba in zip(class_names, new_commit_prediction_proba[0])
     }
     
-    # Print the predictions to the console
+    # Afficher les prédictions à la console
     print("\nPredictions:")
     for class_name, proba in predictions.items():
         print(f"{class_name}: {proba*100:.2f}%")
 
-# Main execution
+# Exécution principale
 if __name__ == "__main__":
     commit_message = sys.argv[1] if len(sys.argv) > 1 else "No commit message provided"
     

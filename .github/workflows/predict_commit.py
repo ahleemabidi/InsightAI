@@ -9,6 +9,7 @@ from imblearn.over_sampling import SMOTE
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
+from sklearn.feature_extraction.text import TfidfVectorizer
 import sys
 from termcolor import colored
 
@@ -57,7 +58,7 @@ X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Crea
 y = data['Classification']
 
 # Save column names
-column_names = X.columns
+column_names = list(X.columns)
 
 # Normalize the data
 scaler = StandardScaler()
@@ -161,6 +162,10 @@ joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
 joblib.dump(le_class, './label_encoder_class.pkl')  # Save the label encoder for classification
 
+# Create and fit TF-IDF Vectorizer on commit messages
+vectorizer = TfidfVectorizer(max_features=100)
+vectorizer.fit(data['message'])
+
 # Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
     # Create a default dictionary with placeholder values for all features
@@ -181,6 +186,11 @@ def preprocess_new_commit(commit_text):
         if new_commit[col] not in label_encoders[col].classes_:
             new_commit[col] = label_encoders[col].classes_[0]
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
+
+    # Add TF-IDF features from the commit message
+    tfidf_vector = vectorizer.transform([commit_text]).toarray()[0]
+    for i, value in enumerate(tfidf_vector):
+        new_commit[f'tfidf_feature_{i}'] = value
 
     # Add any missing columns with default values
     missing_cols = set(column_names) - set(new_commit.keys())
@@ -225,12 +235,15 @@ def predict_new_commit(commit_text, model_type='rf'):
 # Read the commit message from command line arguments
 if len(sys.argv) > 1:
     commit_message = sys.argv[1]
-    model_type = 'rf'  # Default to Random Forest
-    if len(sys.argv) > 2:
-        model_type = sys.argv[2]
-    result = predict_new_commit(commit_message, model_type=model_type)
-    print("\n====================\n")
-    print(f"{result}")
-    print("\n====================\n")
 else:
-    print("Veuillez fournir un message de commit en argument.")
+    commit_message = "correction bug"  # Default message for testing
+
+# Predict using the Random Forest model
+rf_prediction = predict_new_commit(commit_message, model_type='rf')
+print("\nPredictions (Random Forest):")
+print(rf_prediction)
+
+# Predict using the Neural Network model
+nn_prediction = predict_new_commit(commit_message, model_type='nn')
+print("\nPredictions (Neural Network):")
+print(nn_prediction)

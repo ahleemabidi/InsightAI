@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import sys
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
@@ -49,6 +48,9 @@ for col in categorical_columns:
 le_class = LabelEncoder()
 data['Classification'] = le_class.fit_transform(data['Classification'])
 
+# Sauvegarder les noms de classes
+class_names = le_class.classes_
+
 # Initialiser le TF-IDF Vectorizer
 tfidf_vectorizer = TfidfVectorizer(max_features=5000)
 X_text = tfidf_vectorizer.fit_transform(data['message'])
@@ -58,10 +60,6 @@ X_numeric = data.drop(['Classification', 'Date', 'commit', 'message', 'functions
 X_numeric = StandardScaler().fit_transform(X_numeric)
 X = np.hstack([X_numeric, X_text.toarray()])
 y = data['Classification']
-
-# Sauvegarder les noms de colonnes pour les données numériques et TF-IDF
-numeric_column_names = X_numeric.shape[1]
-tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
 
 # Diviser les données en ensembles d'entraînement et de test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -163,9 +161,6 @@ for label, metrics in class_report_nn.items():
 print(f"\nAccuracy Score (Neural Network) : {accuracy_nn * 100:.2f}%")
 print(f"ROC AUC Score (Neural Network) : {roc_auc_nn * 100:.2f}%")
 
-# Mapper les indices aux noms de classes
-class_index_mapping = {index: class_name for index, class_name in enumerate(le_class.classes_)}
-
 # Prétraiter une nouvelle commit pour la prédiction
 def preprocess_new_commit(commit_message):
     # Convertir le message du commit en vecteurs TF-IDF
@@ -200,19 +195,18 @@ def predict_new_commit(commit_message):
 
     # Résultats Random Forest
     print("\nPrediction Random Forest :")
-    for i, class_name in enumerate(le_class.classes_):
+    for i, class_id in enumerate(rf_model.classes_):
+        class_name = class_names[class_id]
         print(f"{class_name} : {new_commit_prediction_proba_rf[0][i] * 100:.2f}%")
 
     # Résultats Neural Network
     print("\nPrediction Neural Network :")
-    for i, class_name in enumerate(le_class.classes_):
+    for i, class_name in enumerate(class_names):
         print(f"{class_name} : {new_commit_prediction_proba_nn[0][i] * 100:.2f}%")
 
-# Lecture du message du commit depuis les arguments
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Erreur : Aucun message de commit fourni.")
-        sys.exit(1)
-
-    commit_message = sys.argv[1]
+# Exemple d'utilisation
+while True:
+    commit_message = input("Entrez un message de commit (ou 'exit' pour quitter) : ")
+    if commit_message.lower() == 'exit':
+        break
     predict_new_commit(commit_message)

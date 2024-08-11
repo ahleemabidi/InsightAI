@@ -235,7 +235,7 @@ def predict_new_commit(commit_text, model_type='rf'):
 if len(sys.argv) > 1:
     commit_message = sys.argv[1]
 else:
-    commit_message = "correction bug"  # Default message for testing
+    commit_message = "fix erreur"  # Default message for testing
 
 # Predict using the Random Forest model
 rf_prediction = predict_new_commit(commit_message, model_type='rf')

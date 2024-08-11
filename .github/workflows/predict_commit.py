@@ -53,9 +53,21 @@ y = data['Classification']
 # Diviser les données en ensembles d'entraînement et de test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
+# Ajuster dynamiquement k_neighbors pour SMOTE
+def get_k_neighbors(y_train):
+    min_class_samples = min(y_train.value_counts())
+    return min(max(1, min_class_samples - 1), 6)  # Ajuster k_neighbors avec un maximum de 6
+
+k_neighbors = get_k_neighbors(y_train)
+
 # Appliquer SMOTE
-smote = SMOTE(random_state=42)
+smote = SMOTE(k_neighbors=k_neighbors, random_state=42)
 X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
+
+# Vérifier la distribution des classes après SMOTE en pourcentage
+class_distribution = pd.Series(y_train_sm).value_counts(normalize=True) * 100
+print("Distribution des classes après SMOTE (en pourcentage) :")
+print(class_distribution)
 
 # Hyperparameter tuning pour Random Forest
 param_grid = {

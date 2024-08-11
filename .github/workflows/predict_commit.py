@@ -1,6 +1,6 @@
-import sys
 import pandas as pd
 import numpy as np
+import sys
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
@@ -13,7 +13,7 @@ from tensorflow.keras.utils import to_categorical
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Charger le fichier CSV
-file_path = './.github/workflows/DATA_Finale.csv'
+file_path = './DATA_Finale.csv'
 data = pd.read_csv(file_path)
 
 # Convertir les colonnes de date/heure en datetime
@@ -162,6 +162,9 @@ for label, metrics in class_report_nn.items():
 
 print(f"\nAccuracy Score (Neural Network) : {accuracy_nn * 100:.2f}%")
 print(f"ROC AUC Score (Neural Network) : {roc_auc_nn * 100:.2f}%")
+
+# Mapper les indices aux noms de classes
+class_index_mapping = {index: class_name for index, class_name in enumerate(le_class.classes_)}
 
 # Prétraiter une nouvelle commit pour la prédiction
 def preprocess_new_commit(commit_message):

@@ -9,9 +9,11 @@ from imblearn.over_sampling import SMOTE
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
+from sklearn.feature_extraction.text import TfidfVectorizer
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import sys
+from termcolor import colored
 import os
 
 # Load the CSV file
@@ -55,17 +57,8 @@ data['Classification'] = le_class.fit_transform(data['Classification'])
 X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Created At', 'Updated At'], axis=1, errors='ignore')
 y = data['Classification']
 
-# Create and fit Tokenizer on commit messages
-tokenizer = Tokenizer()
-tokenizer.fit_on_texts(data['message'])
-X_tfidf = tokenizer.texts_to_sequences(data['message'])
-X_tfidf = pad_sequences(X_tfidf, padding='post')
-
-# Combine features with TF-IDF
-X = np.hstack([X, X_tfidf])
-
-# Save models and necessary objects
-joblib.dump(tokenizer, './tokenizer.pkl')  # Save the tokenizer
+# Save column names
+column_names = list(X.columns) + [f'tfidf_feature_{i}' for i in range(100)]
 
 # Normalize the data
 scaler = StandardScaler()
@@ -135,7 +128,7 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
-# Save the Keras model
+# Save the Keras model in the recommended format
 nn_model.save('./nn_model.keras')
 
 # Save models and necessary objects
@@ -144,45 +137,55 @@ joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
 joblib.dump(le_class, './label_encoder_class.pkl')  # Save the label encoder for classification
 
+# Create and fit TF-IDF Vectorizer on commit messages
+vectorizer = TfidfVectorizer(max_features=100)
+vectorizer.fit(data['message'])
+joblib.dump(vectorizer, './vectorizer.pkl')  # Save the vectorizer
+
+# Create and fit Tokenizer on commit messages
+tokenizer = Tokenizer(num_words=100)
+tokenizer.fit_on_texts(data['message'])
+joblib.dump(tokenizer, './tokenizer.pkl')  # Save the tokenizer
+
 # Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
-    # Create a dictionary with default values for all features
+    # Crée un dictionnaire avec des valeurs par défaut pour toutes les caractéristiques
     new_commit = {
-        'Date': pd.Timestamp.now(),
-        'Duration': 0,  # Example: duration in seconds
+        'ID': 0,
         'User': 'UNKNOWN',
         'Author': 'UNKNOWN',
-        'State': 'UNKNOWN',
         'Labels': 'UNKNOWN',
+        'State': 'UNKNOWN',
+        'Duration': 0,  # Exemple: durée en secondes
         'Year': pd.Timestamp.now().year,
         'Month': pd.Timestamp.now().month,
         'Day': pd.Timestamp.now().day
     }
 
-    # Encode categorical columns with handling unknown labels
+    # Encode les colonnes catégorielles avec gestion des labels inconnus
     for col in categorical_columns:
         if new_commit[col] not in label_encoders[col].classes_:
-            new_commit[col] = label_encoders[col].classes_[0]  # Use default value for unknown labels
+            new_commit[col] = label_encoders[col].classes_[0]  # Utiliser une valeur par défaut pour les labels inconnus
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
-    # Add TF-IDF features of the commit message
+    # Ajouter les caractéristiques TF-IDF du message de commit
     tokenizer = joblib.load('./tokenizer.pkl')
     sequences = tokenizer.texts_to_sequences([commit_text])
-    padded_sequences = pad_sequences(sequences, maxlen=X_tfidf.shape[1], padding='post')
+    padded_sequences = pad_sequences(sequences, maxlen=100, padding='post')
     
     tfidf_features = padded_sequences[0]
     for i, value in enumerate(tfidf_features):
         new_commit[f'tfidf_feature_{i}'] = value
 
-    # Add missing columns with default values
+    # Ajouter les colonnes manquantes avec des valeurs par défaut
     missing_cols = set(column_names) - set(new_commit.keys())
     for col in missing_cols:
         new_commit[col] = 0
 
-    # Reorder columns to match expected order
+    # Réorganiser les colonnes pour correspondre à l'ordre attendu
     new_commit_df = pd.DataFrame([new_commit], columns=column_names)
 
-    # Normalize the data
+    # Normaliser les données
     scaler = joblib.load('./scaler.pkl')
     new_commit_scaled = scaler.transform(new_commit_df)
 
@@ -191,7 +194,7 @@ def preprocess_new_commit(commit_text):
 
     return new_commit_scaled
 
-# Function to predict a new commit
+# Fonction pour prédire un nouveau commit
 def predict_new_commit(commit_text, model_type='rf'):
     new_commit_preprocessed = preprocess_new_commit(commit_text)
     
@@ -211,19 +214,12 @@ def predict_new_commit(commit_text, model_type='rf'):
         class_name: proba for class_name, proba in zip(class_names, new_commit_prediction_proba[0])
     }
     
-    # Print predictions to the console
+    # Afficher les prédictions dans la console
     print("\nPredictions:")
     for class_name, proba in predictions.items():
         print(f"{class_name}: {proba*100:.2f}%")
 
-# Main execution
+# Exécution principale
 if __name__ == "__main__":
-    commit_message = sys.argv[1] if len(sys.argv) > 1 else "No commit message provided"
-    
-    print(f"Commit Message: {commit_message}")
-    
-    print("Running Random Forest Prediction...")
+    commit_message = sys.argv[1] if len(sys.argv) > 1 else "Initial commit"
     predict_new_commit(commit_message, model_type='rf')
-    
-    print("\nRunning Neural Network Prediction...")
-    predict_new_commit(commit_message, model_type='nn')

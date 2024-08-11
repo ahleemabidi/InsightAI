@@ -162,7 +162,6 @@ joblib.dump(le_class, './label_encoder_class.pkl')  # Save the label encoder for
 # Create and fit TF-IDF Vectorizer on commit messages
 vectorizer = TfidfVectorizer(max_features=100)
 vectorizer.fit(data['message'])
-joblib.dump(vectorizer, './tfidf_vectorizer.pkl')  # Save the TF-IDF vectorizer
 
 # Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
@@ -191,9 +190,9 @@ def preprocess_new_commit(commit_text):
         new_commit[f'tfidf_feature_{i}'] = value
 
     # Add any missing columns with default values
-    for col in column_names:
-        if col not in new_commit:
-            new_commit[col] = 0
+    missing_cols = set(column_names) - set(new_commit.keys())
+    for col in missing_cols:
+        new_commit[col] = 0
 
     # Reorder columns to match the expected order
     new_commit_df = pd.DataFrame([new_commit], columns=column_names)
@@ -232,7 +231,16 @@ def predict_new_commit(commit_text, model_type='rf'):
 
 # Read the commit message from command line arguments
 if len(sys.argv) > 1:
-    commit_message = ' '.join(sys.argv[1:])
-    print(predict_new_commit(commit_message, model_type='rf'))  # Use 'nn' for neural network
+    commit_message = sys.argv[1]
 else:
-    print("Please provide a commit message as a command line argument.")
+    commit_message = "correction bug"  # Default message for testing
+
+# Predict using the Random Forest model
+rf_prediction = predict_new_commit(commit_message, model_type='rf')
+print("\nPredictions (Random Forest):")
+print(rf_prediction)
+
+# Predict using the Neural Network model
+nn_prediction = predict_new_commit(commit_message, model_type='nn')
+print("\nPredictions (Neural Network):")
+print(nn_prediction)

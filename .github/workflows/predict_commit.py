@@ -58,7 +58,7 @@ X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Crea
 y = data['Classification']
 
 # Save column names
-column_names = list(X.columns)  # Exclude tfidf features for now
+column_names = list(X.columns)
 
 # Normalize the data
 scaler = StandardScaler()

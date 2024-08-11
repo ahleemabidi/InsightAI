@@ -3,7 +3,7 @@ name: Predict Commit
 on:
   push:
     branches:
-      - Haythem_Kchouk
+      - Haythem_Kchouk  # Branche à surveiller pour les commits
 
 jobs:
   predict_commit:
@@ -21,17 +21,9 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy scikit-learn imbalanced-learn tensorflow colorama joblib
-
-    - name: Generate models and preprocessors
-      run: |
-        python .github/workflows/train_and_save_models.py
+        pip install pandas numpy scikit-learn imbalanced-learn tensorflow termcolor joblib
 
     - name: Run prediction script
-      run: |
-        python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}"
-
-    - name: Check script output
       run: |
         python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}" > output.log
         cat output.log

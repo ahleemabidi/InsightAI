@@ -2,16 +2,17 @@ import pandas as pd
 import numpy as np
 import joblib
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
 from imblearn.over_sampling import SMOTE
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 from sklearn.feature_extraction.text import TfidfVectorizer
-from tensorflow.keras.models import load_model
-from termcolor import colored
 import sys
+from termcolor import colored
+import os
 
 # Load the CSV file
 file_path = './.github/workflows/DATA_Finale.csv'
@@ -75,24 +76,60 @@ k_neighbors = get_k_neighbors(y_train)
 smote = SMOTE(random_state=42, k_neighbors=k_neighbors)
 X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 
-# Train the Random Forest model
-rf_model = RandomForestClassifier(random_state=42)
+# Hyperparameter tuning for Random Forest
+param_grid = {
+    'n_estimators': [100, 200, 300],
+    'max_features': ['sqrt', 'log2'],
+    'max_depth': [4, 6, 8, 10],
+    'criterion': ['gini', 'entropy']
+}
+
+rf_grid = GridSearchCV(estimator=RandomForestClassifier(random_state=42), param_grid=param_grid, cv=5, n_jobs=-1)
+rf_grid.fit(X_train_sm, y_train_sm)
+
+# Best parameters and score
+print("Best Parameters for Random Forest: ", rf_grid.best_params_)
+print("Best Score for Random Forest: ", rf_grid.best_score_)
+
+# Create and train the Random Forest model with the best parameters
+rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
+
+# Make predictions and evaluate the Random Forest model
+y_pred_rf = rf_model.predict(X_test)
+y_pred_proba_rf = rf_model.predict_proba(X_test)
+
+conf_matrix_rf = confusion_matrix(y_test, y_pred_rf)
+class_report_rf = classification_report(y_test, y_pred_rf)
+accuracy_rf = accuracy_score(y_test, y_pred_rf)
+roc_auc_rf = roc_auc_score(y_test, y_pred_proba_rf, multi_class='ovr')
+
+# Print the results to the console
+print("Confusion Matrix (Random Forest):")
+print(conf_matrix_rf)
+print("\nClassification Report (Random Forest):")
+print(class_report_rf)
+print("\nAccuracy Score (Random Forest):")
+print(accuracy_rf)
+print("\nROC AUC Score (Random Forest):")
+print(roc_auc_rf)
 
 # Create and train the neural network model
 y_train_sm_one_hot = to_categorical(y_train_sm)
 y_test_one_hot = to_categorical(y_test)
 
 nn_model = Sequential()
-nn_model.add(Dense(128, input_dim=X_train_sm.shape[1], activation='relu'))
-nn_model.add(Dropout(0.5))  # Add dropout to prevent overfitting
-nn_model.add(Dense(64, activation='relu'))
+nn_model.add(Dense(64, input_dim=X_train_sm.shape[1], activation='relu'))
+nn_model.add(Dense(32, activation='relu'))
 nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
-# Save the models and necessary objects
+# Save the Keras model in the recommended format
+nn_model.save('./nn_model.keras')
+
+# Save models and necessary objects
 joblib.dump(rf_model, './rf_model.pkl')
 joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
@@ -101,11 +138,7 @@ joblib.dump(le_class, './label_encoder_class.pkl')  # Save the label encoder for
 # Create and fit TF-IDF Vectorizer on commit messages
 vectorizer = TfidfVectorizer(max_features=100)
 vectorizer.fit(data['message'])
-
-# Save the vectorizer
-joblib.dump(vectorizer, './vectorizer.pkl')
-
-print("Models and preprocessing objects saved successfully.")
+joblib.dump(vectorizer, './vectorizer.pkl')  # Save the vectorizer
 
 # Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
@@ -129,6 +162,7 @@ def preprocess_new_commit(commit_text):
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
     # Add TF-IDF features from the commit message
+    vectorizer = joblib.load('./vectorizer.pkl')
     tfidf_vector = vectorizer.transform([commit_text]).toarray()[0]
     for i, value in enumerate(tfidf_vector):
         new_commit[f'tfidf_feature_{i}'] = value
@@ -142,6 +176,7 @@ def preprocess_new_commit(commit_text):
     new_commit_df = pd.DataFrame([new_commit], columns=column_names)
 
     # Normalize the data
+    scaler = joblib.load('./scaler.pkl')
     new_commit_scaled = scaler.transform(new_commit_df)
 
     print(f"Processed New Commit Data: {new_commit_df}")
@@ -155,36 +190,31 @@ def predict_new_commit(commit_text, model_type='rf'):
         model = joblib.load('./rf_model.pkl')
         new_commit_prediction_proba = model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
+        if not os.path.exists('./nn_model.keras'):
+            raise FileNotFoundError("Neural Network model file not found.")
         model = load_model('./nn_model.keras')
         new_commit_prediction_proba = model.predict(new_commit_preprocessed)
     else:
-        raise ValueError("Model type not supported")
-    
-    print("Raw Prediction Probabilities: ", new_commit_prediction_proba)
-    
-    decoded_classes = le_class.classes_
-    prediction_proba = {decoded_classes[i]: new_commit_prediction_proba[0][i] * 100 for i in range(len(decoded_classes))}
-    
-    # Create formatted and colorful output, replacing class 0 with its actual meaning
-    formatted_result = "\n".join([
-        colored(f"{prob:.2f}% de probabilité que le commit soit classé comme {cls}", 'green')
-        for cls, prob in prediction_proba.items()
-    ])
-    
-    return formatted_result
+        raise ValueError("Invalid model type specified. Choose 'rf' or 'nn'.")
 
-# Read the commit message from command line arguments
-if len(sys.argv) > 1:
-    commit_message = sys.argv[1]
-else:
-    commit_message = "correction bug"  # Default message for testing
+    class_names = le_class.classes_
+    predictions = {
+        class_name: proba for class_name, proba in zip(class_names, new_commit_prediction_proba[0])
+    }
+    
+    # Print the predictions to the console
+    print("\nPredictions:")
+    for class_name, proba in predictions.items():
+        print(f"{class_name}: {proba*100:.2f}%")
 
-# Predict using the Random Forest model
-rf_prediction = predict_new_commit(commit_message, model_type='rf')
-print("\nPredictions (Random Forest):")
-print(rf_prediction)
-
-# Predict using the Neural Network model
-nn_prediction = predict_new_commit(commit_message, model_type='nn')
-print("\nPredictions (Neural Network):")
-print(nn_prediction)
+# Main execution
+if __name__ == "__main__":
+    commit_message = sys.argv[1] if len(sys.argv) > 1 else "No commit message provided"
+    
+    print(f"Commit Message: {commit_message}")
+    
+    print("Running Random Forest Prediction...")
+    predict_new_commit(commit_message, model_type='rf')
+    
+    print("\nRunning Neural Network Prediction...")
+    predict_new_commit(commit_message, model_type='nn')

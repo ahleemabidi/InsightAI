@@ -55,8 +55,17 @@ data['Classification'] = le_class.fit_transform(data['Classification'])
 X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Created At', 'Updated At'], axis=1, errors='ignore')
 y = data['Classification']
 
-# Save column names
-column_names = list(X.columns)
+# Create and fit Tokenizer on commit messages
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(data['message'])
+X_tfidf = tokenizer.texts_to_sequences(data['message'])
+X_tfidf = pad_sequences(X_tfidf, padding='post')
+
+# Combine features with TF-IDF
+X = np.hstack([X, X_tfidf])
+
+# Save models and necessary objects
+joblib.dump(tokenizer, './tokenizer.pkl')  # Save the tokenizer
 
 # Normalize the data
 scaler = StandardScaler()
@@ -135,14 +144,6 @@ joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
 joblib.dump(le_class, './label_encoder_class.pkl')  # Save the label encoder for classification
 
-# Create and fit Tokenizer on commit messages
-tokenizer = Tokenizer()
-tokenizer.fit_on_texts(data['message'])
-X_tfidf = tokenizer.texts_to_sequences(data['message'])
-X_tfidf = pad_sequences(X_tfidf, padding='post')
-
-joblib.dump(tokenizer, './tokenizer.pkl')  # Save the tokenizer
-
 # Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
     # Create a dictionary with default values for all features
@@ -211,7 +212,7 @@ def predict_new_commit(commit_text, model_type='rf'):
     }
     
     # Print predictions to the console
-    print(f"\nPredictions with {model_type.upper()} Model:")
+    print("\nPredictions:")
     for class_name, proba in predictions.items():
         print(f"{class_name}: {proba*100:.2f}%")
 

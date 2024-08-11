@@ -184,11 +184,10 @@ def preprocess_new_commit(commit_message):
     new_commit_df = new_commit_df[all_columns]
 
     # Normaliser les données
-    scaler = StandardScaler()
     new_commit_numeric = np.zeros((1, numeric_column_names))
-    new_commit_df = np.hstack([new_commit_numeric, new_commit_df])
+    new_commit_features = np.hstack([new_commit_numeric, new_commit_df])
 
-    return new_commit_df
+    return new_commit_features
 
 # Prédiction avec les modèles
 def predict_new_commit(commit_message):

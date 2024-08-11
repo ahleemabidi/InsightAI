@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
 from imblearn.over_sampling import SMOTE
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model  # Importer load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 from sklearn.feature_extraction.text import TfidfVectorizer

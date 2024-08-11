@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import sys
+import joblib  # Pour sauvegarder et charger les modèles
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
@@ -53,15 +53,17 @@ data['Classification'] = le_class.fit_transform(data['Classification'])
 tfidf_vectorizer = TfidfVectorizer(max_features=5000)
 X_text = tfidf_vectorizer.fit_transform(data['message'])
 
+# Sauvegarder le TF-IDF Vectorizer
+joblib.dump(tfidf_vectorizer, 'tfidf_vectorizer.pkl')
+
 # Prétraiter les données
 X_numeric = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Created At', 'Updated At'], axis=1, errors='ignore')
-X_numeric = StandardScaler().fit_transform(X_numeric)
+scaler = StandardScaler()
+X_numeric = scaler.fit_transform(X_numeric)  # Ajuster le StandardScaler sur les données d'entraînement
+joblib.dump(scaler, 'scaler.pkl')  # Sauvegarder le StandardScaler
+
 X = np.hstack([X_numeric, X_text.toarray()])
 y = data['Classification']
-
-# Sauvegarder les noms de colonnes pour les données numériques et TF-IDF
-numeric_column_names = X_numeric.shape[1]
-tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
 
 # Diviser les données en ensembles d'entraînement et de test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -101,6 +103,9 @@ print("Meilleur score pour Random Forest : ", rf_grid.best_score_)
 rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
 
+# Sauvegarder le modèle Random Forest
+joblib.dump(rf_model, 'rf_model.pkl')
+
 # Faire des prédictions et évaluer le modèle Random Forest
 y_pred_rf = rf_model.predict(X_test)
 y_pred_proba_rf = rf_model.predict_proba(X_test)
@@ -137,6 +142,9 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
+# Sauvegarder le modèle Neural Network
+nn_model.save('nn_model.h5')
+
 # Faire des prédictions et évaluer le modèle de réseau de neurones
 y_pred_nn = nn_model.predict(X_test)
 y_pred_proba_nn = y_pred_nn
@@ -168,42 +176,50 @@ class_index_mapping = {index: class_name for index, class_name in enumerate(le_c
 
 # Prétraiter une nouvelle commit pour la prédiction
 def preprocess_new_commit(commit_message):
+    # Charger les objets de prétraitement
+    tfidf_vectorizer = joblib.load('tfidf_vectorizer.pkl')
+    scaler = joblib.load('scaler.pkl')
+    
     # Convertir le message du commit en vecteurs TF-IDF
     commit_message_tfidf = tfidf_vectorizer.transform([commit_message])
 
     # Créer un DataFrame avec les colonnes TF-IDF
-    new_commit_df = pd.DataFrame(commit_message_tfidf.toarray(), columns=tfidf_feature_names)
+    new_commit_df = pd.DataFrame(commit_message_tfidf.toarray(), columns=tfidf_vectorizer.get_feature_names_out())
 
     # Ajouter les colonnes manquantes avec des valeurs par défaut
-    missing_cols = set(tfidf_feature_names) - set(new_commit_df.columns)
+    missing_cols = set(tfidf_vectorizer.get_feature_names_out()) - set(new_commit_df.columns)
     for col in missing_cols:
         new_commit_df[col] = 0
 
     # Réordonner les colonnes selon l'ordre attendu
-    all_columns = list(tfidf_feature_names)
+    all_columns = list(tfidf_vectorizer.get_feature_names_out())
     new_commit_df = new_commit_df[all_columns]
 
-    # Normaliser les données
-    scaler = StandardScaler()
-    new_commit_numeric = np.zeros((1, numeric_column_names))
-    new_commit_preprocessed = np.hstack([scaler.transform(new_commit_numeric), new_commit_df])
+    # Prétraiter les données numériques
+    new_commit_scaled = scaler.transform(new_commit_df)
+    
+    return new_commit_scaled
 
-    return new_commit_preprocessed
+# Prédiction
+def predict_commit(commit_message):
+    new_commit_scaled = preprocess_new_commit(commit_message)
+    
+    # Charger les modèles
+    rf_model = joblib.load('rf_model.pkl')
+    nn_model = tf.keras.models.load_model('nn_model.h5')
 
-# Exemple d'utilisation pour la prédiction
-commit_message = "Votre message de commit ici"
-new_commit_preprocessed = preprocess_new_commit(commit_message)
+    # Faire des prédictions avec les deux modèles
+    rf_prediction = rf_model.predict(new_commit_scaled)
+    nn_prediction = nn_model.predict(new_commit_scaled)
+    
+    rf_class = le_class.inverse_transform([np.argmax(rf_prediction)])
+    nn_class = le_class.inverse_transform([np.argmax(nn_prediction)])
+    
+    return rf_class[0], nn_class[0]
 
-# Prédictions Random Forest
-new_commit_prediction_proba_rf = rf_model.predict_proba(new_commit_preprocessed)
-print("\nPrediction Random Forest :")
-for i, proba in enumerate(new_commit_prediction_proba_rf[0]):
-    class_name = class_index_mapping[i]
-    print(f"{class_name} : {proba * 100:.2f}%")
+# Exemple d'utilisation
+commit_message = 'Fix bug in the payment module'
+rf_class, nn_class = predict_commit(commit_message)
 
-# Prédictions Neural Network
-new_commit_prediction_proba_nn = nn_model.predict(new_commit_preprocessed)
-print("\nPrediction Neural Network :")
-for i, proba in enumerate(new_commit_prediction_proba_nn[0]):
-    class_name = class_index_mapping[i]
-    print(f"{class_name} : {proba * 100:.2f}%")
+print(f"Prédiction (Random Forest) : {rf_class}")
+print(f"Prédiction (Neural Network) : {nn_class}")

@@ -10,7 +10,6 @@ from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.utils import to_categorical
 from sklearn.feature_extraction.text import TfidfVectorizer
-import sys
 from termcolor import colored
 
 # Load the CSV file
@@ -161,12 +160,15 @@ joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
 joblib.dump(le_class, './label_encoder_class.pkl')  # Save the label encoder for classification
 
-# Create and fit TF-IDF Vectorizer on commit messages
+# Load the TF-IDF Vectorizer used for training
 vectorizer = TfidfVectorizer(max_features=100)
 vectorizer.fit(data['message'])
 
 # Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
+    # Transform the commit message with TF-IDF
+    tfidf_vector = vectorizer.transform([commit_text]).toarray()[0]
+
     # Create a default dictionary with placeholder values for all features
     new_commit = {
         'Date': pd.Timestamp.now(),
@@ -186,8 +188,7 @@ def preprocess_new_commit(commit_text):
             new_commit[col] = label_encoders[col].classes_[0]
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
-    # Add TF-IDF features from the commit message
-    tfidf_vector = vectorizer.transform([commit_text]).toarray()[0]
+    # Add TF-IDF features to the dictionary
     for i, value in enumerate(tfidf_vector):
         new_commit[f'tfidf_feature_{i}'] = value
 

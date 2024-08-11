@@ -12,7 +12,6 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import sys
-from termcolor import colored
 import os
 
 # Load the CSV file
@@ -127,7 +126,7 @@ nn_model.add(Dense(len(le_class.classes_), activation='softmax'))
 nn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validation_data=(X_test, y_test_one_hot))
 
-# Save the Keras model in the recommended format
+# Save the Keras model
 nn_model.save('./nn_model.keras')
 
 # Save models and necessary objects
@@ -136,7 +135,7 @@ joblib.dump(scaler, './scaler.pkl')
 joblib.dump(label_encoders, './label_encoders.pkl')
 joblib.dump(le_class, './label_encoder_class.pkl')  # Save the label encoder for classification
 
-# Create and fit TF-IDF Vectorizer on commit messages
+# Create and fit Tokenizer on commit messages
 tokenizer = Tokenizer()
 tokenizer.fit_on_texts(data['message'])
 X_tfidf = tokenizer.texts_to_sequences(data['message'])
@@ -146,10 +145,10 @@ joblib.dump(tokenizer, './tokenizer.pkl')  # Save the tokenizer
 
 # Preprocess a new commit for prediction
 def preprocess_new_commit(commit_text):
-    # Crée un dictionnaire par défaut avec des valeurs de remplacement pour toutes les fonctionnalités
+    # Create a dictionary with default values for all features
     new_commit = {
         'Date': pd.Timestamp.now(),
-        'Duration': 0,  # Exemple : durée en secondes
+        'Duration': 0,  # Example: duration in seconds
         'User': 'UNKNOWN',
         'Author': 'UNKNOWN',
         'State': 'UNKNOWN',
@@ -159,13 +158,13 @@ def preprocess_new_commit(commit_text):
         'Day': pd.Timestamp.now().day
     }
 
-    # Encode les colonnes catégorielles avec gestion des labels inconnus
+    # Encode categorical columns with handling unknown labels
     for col in categorical_columns:
         if new_commit[col] not in label_encoders[col].classes_:
-            new_commit[col] = label_encoders[col].classes_[0]  # Utiliser une valeur par défaut pour les labels inconnus
+            new_commit[col] = label_encoders[col].classes_[0]  # Use default value for unknown labels
         new_commit[col] = label_encoders[col].transform([new_commit[col]])[0]
 
-    # Ajoute des caractéristiques TF-IDF du message de commit
+    # Add TF-IDF features of the commit message
     tokenizer = joblib.load('./tokenizer.pkl')
     sequences = tokenizer.texts_to_sequences([commit_text])
     padded_sequences = pad_sequences(sequences, maxlen=X_tfidf.shape[1], padding='post')
@@ -174,15 +173,15 @@ def preprocess_new_commit(commit_text):
     for i, value in enumerate(tfidf_features):
         new_commit[f'tfidf_feature_{i}'] = value
 
-    # Ajouter des colonnes manquantes avec des valeurs par défaut
+    # Add missing columns with default values
     missing_cols = set(column_names) - set(new_commit.keys())
     for col in missing_cols:
         new_commit[col] = 0
 
-    # Réorganiser les colonnes pour correspondre à l'ordre attendu
+    # Reorder columns to match expected order
     new_commit_df = pd.DataFrame([new_commit], columns=column_names)
 
-    # Normaliser les données
+    # Normalize the data
     scaler = joblib.load('./scaler.pkl')
     new_commit_scaled = scaler.transform(new_commit_df)
 
@@ -191,7 +190,7 @@ def preprocess_new_commit(commit_text):
 
     return new_commit_scaled
 
-# Fonction pour prédire un nouveau commit
+# Function to predict a new commit
 def predict_new_commit(commit_text, model_type='rf'):
     new_commit_preprocessed = preprocess_new_commit(commit_text)
     
@@ -211,12 +210,12 @@ def predict_new_commit(commit_text, model_type='rf'):
         class_name: proba for class_name, proba in zip(class_names, new_commit_prediction_proba[0])
     }
     
-    # Afficher les prédictions à la console
+    # Print predictions to the console
     print(f"\nPredictions with {model_type.upper()} Model:")
     for class_name, proba in predictions.items():
         print(f"{class_name}: {proba*100:.2f}%")
 
-# Exécution principale
+# Main execution
 if __name__ == "__main__":
     commit_message = sys.argv[1] if len(sys.argv) > 1 else "No commit message provided"
     

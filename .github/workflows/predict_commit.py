@@ -9,7 +9,6 @@ from imblearn.over_sampling import SMOTE
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
-from sklearn.feature_extraction.text import TfidfVectorizer
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import sys
@@ -58,7 +57,7 @@ X = data.drop(['Classification', 'Date', 'commit', 'message', 'functions', 'Crea
 y = data['Classification']
 
 # Save column names
-column_names = list(X.columns) + [f'tfidf_feature_{i}' for i in range(100)]
+column_names = list(X.columns)  # Exclude tfidf features for now
 
 # Normalize the data
 scaler = StandardScaler()
@@ -202,24 +201,20 @@ def predict_new_commit(commit_text, model_type='rf'):
         model = joblib.load('./rf_model.pkl')
         new_commit_prediction_proba = model.predict_proba(new_commit_preprocessed)
     elif model_type == 'nn':
-        if not os.path.exists('./nn_model.keras'):
-            raise FileNotFoundError("Neural Network model file not found.")
         model = load_model('./nn_model.keras')
         new_commit_prediction_proba = model.predict(new_commit_preprocessed)
     else:
-        raise ValueError("Invalid model type specified. Choose 'rf' or 'nn'.")
+        raise ValueError("Invalid model type specified. Choose 'rf' for Random Forest or 'nn' for Neural Network.")
 
-    class_names = le_class.classes_
-    predictions = {
-        class_name: proba for class_name, proba in zip(class_names, new_commit_prediction_proba[0])
-    }
+    # Convert probabilities to class predictions
+    class_labels = le_class.classes_
+    predictions = {label: prob for label, prob in zip(class_labels, new_commit_prediction_proba[0])}
     
-    # Afficher les prédictions dans la console
-    print("\nPredictions:")
-    for class_name, proba in predictions.items():
-        print(f"{class_name}: {proba*100:.2f}%")
+    # Format and print the results
+    print(f"Predictions with {model_type.upper()} Model:")
+    for label, prob in predictions.items():
+        print(f"{label}: {prob:.2%}")
 
-# Exécution principale
 if __name__ == "__main__":
     commit_message = sys.argv[1] if len(sys.argv) > 1 else "Initial commit"
     predict_new_commit(commit_message, model_type='rf')

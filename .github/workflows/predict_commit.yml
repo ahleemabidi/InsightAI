@@ -21,15 +21,17 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy scikit-learn imbalanced-learn tensorflow colorama
+        pip install pandas numpy scikit-learn imbalanced-learn tensorflow colorama joblib
+
+    - name: Generate models and preprocessors
+      run: |
+        python .github/workflows/train_and_save_models.py
 
     - name: Run prediction script
       run: |
-        # Exécuter le script avec le message de commit passé en argument
         python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}"
 
     - name: Check script output
       run: |
-        # Capturer et afficher la sortie du script pour le débogage
         python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}" > output.log
         cat output.log

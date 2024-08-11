@@ -25,11 +25,11 @@ jobs:
 
     - name: Run prediction script
       run: |
-        # Exécuter le script avec un message de commit de test
-        python .github/workflows/predict_commit.py "Votre message de commit ici"
-      
+        # Exécuter le script avec le message de commit passé en argument
+        python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}"
+
     - name: Check script output
       run: |
         # Capturer et afficher la sortie du script pour le débogage
-        python .github/workflows/predict_commit.py "Votre message de commit ici" > output.log
+        python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}" > output.log
         cat output.log

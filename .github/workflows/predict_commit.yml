@@ -28,11 +28,17 @@ jobs:
       run: |
         # Vérifier si un commit précédent existe
         if [ $(git rev-list --count HEAD) -gt 1 ]; then
-          git diff HEAD~1 HEAD > diff.txt
+          git fetch origin
+          git diff --name-only HEAD~1 HEAD > modified_files.txt
         else
-          echo "No previous commit to compare" > diff.txt
+          echo "No previous commit to compare" > modified_files.txt
         fi
+
+    - name: Display modified files
+      run: |
+        echo "Modified files:"
+        cat modified_files.txt
 
     - name: Run prediction script
       run: |
-        python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}" "$(cat diff.txt)"
+        python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}" "$(cat modified_files.txt)"

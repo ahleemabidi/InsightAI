@@ -23,19 +23,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas numpy scikit-learn imbalanced-learn tensorflow termcolor joblib
 
-    - name: Capture commit diff
-      id: capture-diff
+    - name: List modified files
+      id: list-modified-files
       run: |
-        if [ $(git rev-list --count HEAD) -gt 1 ]; then
-          git diff HEAD~1 HEAD > diff.txt || echo "No diff available" > diff.txt
-        else
-          echo "No previous commit to compare" > diff.txt
-        fi
-
-    - name: Display commit diff
-      run: |
-        cat diff.txt
+        # Afficher les fichiers modifiés dans le commit actuel
+        git diff --name-only HEAD~1 HEAD > modified_files.txt
+        echo "Modified files:"
+        cat modified_files.txt
 
     - name: Run prediction script
       run: |
-        python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}" "$(cat diff.txt)"
+        python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}" "$(cat modified_files.txt)"

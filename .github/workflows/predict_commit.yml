@@ -3,7 +3,7 @@ name: Predict Commit
 on:
   push:
     branches:
-      - Haythem_Kchouk  # Branche à surveiller pour les commits
+      - Haythem_Kchouk  # Branch to watch for commits
 
 jobs:
   predict_commit:
@@ -23,6 +23,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas numpy scikit-learn imbalanced-learn tensorflow termcolor joblib
 
+    - name: Get commit diff
+      run: |
+        git diff HEAD^ HEAD > diff.txt  # Capture the diff of the latest commit
+
     - name: Run prediction script
       run: |
-        python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}"
+        python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}" "$(cat diff.txt)"

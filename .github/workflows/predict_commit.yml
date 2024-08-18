@@ -34,3 +34,4 @@ jobs:
     - name: Run prediction script
       run: |
         python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}" "$(cat modified_files.txt)"
+

@@ -85,10 +85,6 @@ rf_grid.fit(X_train_sm, y_train_sm)
 rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
 
-# Évaluation du modèle Random Forest
-y_pred_rf = rf_model.predict(X_test)
-y_pred_proba_rf = rf_model.predict_proba(X_test)
-
 # Créer et entraîner le modèle de réseau de neurones
 y_train_sm_one_hot = to_categorical(y_train_sm)
 y_test_one_hot = to_categorical(y_test)
@@ -142,7 +138,7 @@ def preprocess_new_commit(commit_message, commit_diff):
     commit_message_tfidf = tfidf_vectorizer.transform([commit_message])
     new_commit_df = pd.DataFrame(commit_message_tfidf.toarray(), columns=tfidf_vectorizer.get_feature_names_out())
     
-    # Ajouter les colonnes manquantes avec des zéros
+    # Ajouter les colonnes manquantes avec des zéros pour correspondre au modèle
     missing_cols = set(tfidf_vectorizer.get_feature_names_out()) - set(new_commit_df.columns)
     for col in missing_cols:
         new_commit_df[col] = 0

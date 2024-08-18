@@ -1,0 +1,5 @@
+﻿Date : 6 août 2024
+Participants : Haythem, Faten, Arij
+Contenu :
+Aujourd'hui, nous avons continué à discuter du bug persistant lors du test de notre pipeline sur GitHub Actions. L'équipe est toujours en train de chercher une solution pour l'intégration correcte et résoudre ce problème. Nous restons concentrés sur la résolution de ce bug pour garantir le bon déroulement de nos tests.
+Prochaine réunion : 7 août 2024

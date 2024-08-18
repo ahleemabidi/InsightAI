@@ -1,0 +1,5 @@
+﻿Date : 14 août 2024
+Participants : Haythem, Faten
+Contenu :
+Nous continuons à chercher la source du bug dans notre pipeline GitHub Actions. L'équipe reste concentrée sur la résolution de ce problème.
+Prochaine réunion : 15 août 2024

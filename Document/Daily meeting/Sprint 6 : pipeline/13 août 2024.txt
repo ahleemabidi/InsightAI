@@ -1,0 +1,5 @@
+﻿Date : 13 août 2024
+Participants : Haythem, Faten
+Contenu :
+La recherche sur le bug de notre pipeline GitHub Actions se poursuit. L'équipe explore activement diverses pistes pour identifier la cause et la corriger.
+Prochaine réunion : 14 août 2024

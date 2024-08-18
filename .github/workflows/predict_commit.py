@@ -140,6 +140,8 @@ def calculate_impact(commit_diff):
 def preprocess_new_commit(commit_message, commit_diff):
     commit_message_tfidf = tfidf_vectorizer.transform([commit_message])
     new_commit_df = pd.DataFrame(commit_message_tfidf.toarray(), columns=tfidf_vectorizer.get_feature_names_out())
+    
+    # Ajouter les colonnes manquantes avec des valeurs de zéro
     missing_cols = set(tfidf_vectorizer.get_feature_names_out()) - set(new_commit_df.columns)
     for col in missing_cols:
         new_commit_df[col] = 0
@@ -148,23 +150,32 @@ def preprocess_new_commit(commit_message, commit_diff):
     # Calculer l'impact du commit
     impact_score = calculate_impact(commit_diff)
     
-    new_commit_numeric = np.zeros((1, X_numeric.shape[1]))  # Assumer que les données numériques sont vides pour cette démonstration
+    # Préparer les caractéristiques numériques pour le commit
+    new_commit_numeric = np.zeros((1, X_numeric.shape[1]))
     new_commit_features = np.hstack([new_commit_numeric, new_commit_df])
     
     # Ajouter l'impact score aux features (si nécessaire)
     new_commit_features = np.hstack([new_commit_features, [[impact_score]]])
+    
+    # Assurez-vous que les dimensions sont correctes
+    if new_commit_features.shape[1] != X.shape[1]:
+        raise ValueError(f"Nombre de caractéristiques des nouvelles données ({new_commit_features.shape[1]}) ne correspond pas à celui du modèle ({X.shape[1]})")
     
     return new_commit_features
 
 # Prédiction avec les modèles
 def predict_new_commit(commit_message, commit_diff):
     new_commit_preprocessed = preprocess_new_commit(commit_message, commit_diff)
+    
+    # Prévoir avec Random Forest
     new_commit_prediction_proba_rf = rf_model.predict_proba(new_commit_preprocessed)
-    new_commit_prediction_proba_nn = nn_model.predict(new_commit_preprocessed)
     print("\nPrediction Random Forest :")
     for i, proba in enumerate(new_commit_prediction_proba_rf[0]):
         class_name = class_index_mapping[i]
         print(f"{class_name} : {proba * 100:.2f}%")
+    
+    # Prévoir avec le Réseau de Neurones
+    new_commit_prediction_proba_nn = nn_model.predict(new_commit_preprocessed)
     print("\nPrediction Neural Network :")
     for i, proba in enumerate(new_commit_prediction_proba_nn[0]):
         class_name = class_index_mapping[i]

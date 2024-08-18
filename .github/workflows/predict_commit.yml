@@ -23,11 +23,17 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas numpy scikit-learn imbalanced-learn tensorflow termcolor joblib
 
+    - name: Diagnostic information
+      run: |
+        echo "Current commit SHA: ${{ github.sha }}"
+        git log -1
+        git status
+
     - name: List modified files
       id: list-modified-files
       run: |
         # Afficher les fichiers modifiés dans le commit actuel
-        git diff-tree --no-commit-id --name-only -r ${{ github.sha }} > modified_files.txt
+        git diff --name-only HEAD > modified_files.txt || true
         echo "Modified files:"
         cat modified_files.txt
 

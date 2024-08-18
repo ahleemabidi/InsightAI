@@ -23,6 +23,18 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas numpy scikit-learn imbalanced-learn tensorflow termcolor joblib
 
+    - name: Print commit SHA
+      run: echo "Current commit SHA: ${{ github.sha }}"
+
+    - name: Print recent commits
+      run: git log --oneline -n 10
+
+    - name: Check Git Status
+      run: git status
+
+    - name: Print commit details
+      run: git log -1 --stat
+
     - name: List modified files
       id: list-modified-files
       run: |

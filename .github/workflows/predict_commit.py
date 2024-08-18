@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
 import sys
-import ast
-import os
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
@@ -85,6 +83,19 @@ rf_grid.fit(X_train_sm, y_train_sm)
 rf_model = rf_grid.best_estimator_
 rf_model.fit(X_train_sm, y_train_sm)
 
+# Évaluation du modèle Random Forest
+y_pred_rf = rf_model.predict(X_test)
+y_pred_proba_rf = rf_model.predict_proba(X_test)
+
+print("\nMatrice de confusion (Random Forest) :")
+print(confusion_matrix(y_test, y_pred_rf))
+
+print("\nRapport de classification (Random Forest) :")
+print(classification_report(y_test, y_pred_rf))
+
+print(f"\nAccuracy Score (Random Forest) : {accuracy_score(y_test, y_pred_rf) * 100:.2f}%")
+print(f"ROC AUC Score (Random Forest) : {roc_auc_score(y_test, y_pred_proba_rf, multi_class='ovr') * 100:.2f}%")
+
 # Créer et entraîner le modèle de réseau de neurones
 y_train_sm_one_hot = to_categorical(y_train_sm)
 y_test_one_hot = to_categorical(y_test)
@@ -101,90 +112,48 @@ nn_model.fit(X_train_sm, y_train_sm_one_hot, epochs=50, batch_size=32, validatio
 y_pred_nn = nn_model.predict(X_test)
 y_pred_nn_classes = np.argmax(y_pred_nn, axis=1)
 
+print("\nMatrice de confusion (Neural Network) :")
+print(confusion_matrix(y_test, y_pred_nn_classes))
+
+print("\nRapport de classification (Neural Network) :")
+print(classification_report(y_test, y_pred_nn_classes))
+
+print(f"\nAccuracy Score (Neural Network) : {accuracy_score(y_test, y_pred_nn_classes) * 100:.2f}%")
+print(f"ROC AUC Score (Neural Network) : {roc_auc_score(y_test, y_pred_nn, multi_class='ovr') * 100:.2f}%")
+
 # Mapper les indices aux noms de classes
 class_index_mapping = {index: class_name for index, class_name in enumerate(le_class.classes_)}
 
-# Fonction pour analyser l'impact d'un commit
-def analyze_code_impact(file_path):
-    if not os.path.isfile(file_path):
-        return [], []
-    with open(file_path, "r") as file:
-        tree = ast.parse(file.read(), filename=file_path)
-    
-    functions = [node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
-    classes = [node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
-    
-    return functions, classes
-
-# Fonction pour calculer l'impact d'un commit
-def calculate_impact(commit_diff):
-    # Simuler une analyse de l'impact
-    affected_files = commit_diff.splitlines()  # Extraction simplifiée pour cette démo
-    total_lines_changed = len(affected_files)  # Exemple : compter les lignes affectées
-    total_functions_affected = 0
-    total_classes_affected = 0
-    
-    for file in affected_files:
-        functions, classes = analyze_code_impact(file)
-        total_functions_affected += len(functions)
-        total_classes_affected += len(classes)
-    
-    impact_score = total_lines_changed + total_functions_affected + total_classes_affected
-    return impact_score
-
 # Prétraiter une nouvelle commit pour la prédiction
-def preprocess_new_commit(commit_message, commit_diff):
-    # Transformer le message du commit
+def preprocess_new_commit(commit_message):
     commit_message_tfidf = tfidf_vectorizer.transform([commit_message])
     new_commit_df = pd.DataFrame(commit_message_tfidf.toarray(), columns=tfidf_vectorizer.get_feature_names_out())
-    
-    # Ajouter les colonnes manquantes avec des zéros pour correspondre au modèle
     missing_cols = set(tfidf_vectorizer.get_feature_names_out()) - set(new_commit_df.columns)
     for col in missing_cols:
         new_commit_df[col] = 0
     new_commit_df = new_commit_df[tfidf_vectorizer.get_feature_names_out()]
-    
-    # Calculer l'impact du commit
-    impact_score = calculate_impact(commit_diff)
-    
-    # Préparer les données numériques (en supposant qu'elles sont vides)
     new_commit_numeric = np.zeros((1, X_numeric.shape[1]))  # Assumer que les données numériques sont vides pour cette démonstration
-    
-    # Fusionner les caractéristiques numériques et TF-IDF
     new_commit_features = np.hstack([new_commit_numeric, new_commit_df])
-    
-    # Ajouter l'impact score aux caractéristiques si nécessaire
-    new_commit_features = np.hstack([new_commit_features, [[impact_score]]])
-    
-    # Vérifier la correspondance du nombre de caractéristiques
-    if new_commit_features.shape[1] != X.shape[1]:
-        raise ValueError(f"Nombre de caractéristiques des nouvelles données ({new_commit_features.shape[1]}) ne correspond pas à celui du modèle ({X.shape[1]})")
-    
     return new_commit_features
 
 # Prédiction avec les modèles
-def predict_new_commit(commit_message, commit_diff):
-    new_commit_preprocessed = preprocess_new_commit(commit_message, commit_diff)
+def predict_new_commit(commit_message):
+    new_commit_preprocessed = preprocess_new_commit(commit_message)
     new_commit_prediction_proba_rf = rf_model.predict_proba(new_commit_preprocessed)
     new_commit_prediction_proba_nn = nn_model.predict(new_commit_preprocessed)
-    
     print("\nPrediction Random Forest :")
     for i, proba in enumerate(new_commit_prediction_proba_rf[0]):
         class_name = class_index_mapping[i]
         print(f"{class_name} : {proba * 100:.2f}%")
-    
     print("\nPrediction Neural Network :")
     for i, proba in enumerate(new_commit_prediction_proba_nn[0]):
         class_name = class_index_mapping[i]
         print(f"{class_name} : {proba * 100:.2f}%")
 
-# Lecture du message du commit et du diff depuis les arguments
+# Lecture du message du commit depuis les arguments
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Erreur : Message de commit ou diff non fourni.")
+    if len(sys.argv) < 2:
+        print("Erreur : Aucun message de commit fourni.")
         sys.exit(1)
     commit_message = sys.argv[1]
-    commit_diff = sys.argv[2]  # Le diff du commit devrait être passé en tant que chaîne
-    
-    # Prédire l'impact du nouveau commit
-    predict_new_commit(commit_message, commit_diff)
+    predict_new_commit(commit_message)

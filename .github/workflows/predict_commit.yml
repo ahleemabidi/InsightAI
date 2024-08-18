@@ -3,7 +3,7 @@ name: Predict Commit
 on:
   push:
     branches:
-      - Haythem_Kchouk  # Branch to watch for commits
+      - Haythem_Kchouk  # Branche à surveiller pour les commits
 
 jobs:
   predict_commit:
@@ -23,9 +23,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas numpy scikit-learn imbalanced-learn tensorflow termcolor joblib
 
-    - name: Get commit diff
+    - name: Capture commit diff
+      id: capture-diff
       run: |
-        git diff HEAD^ HEAD > diff.txt  # Capture the diff of the latest commit
+        # Vérifier si un commit précédent existe
+        if [ $(git rev-list --count HEAD) -gt 1 ]; then
+          git diff HEAD~1 HEAD > diff.txt
+        else
+          echo "No previous commit to compare" > diff.txt
+        fi
 
     - name: Run prediction script
       run: |

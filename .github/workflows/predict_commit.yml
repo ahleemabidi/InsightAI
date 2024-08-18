@@ -23,9 +23,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas numpy scikit-learn imbalanced-learn tensorflow termcolor joblib
 
-    - name: Print commit SHA
-      run: echo "Commit SHA: ${{ github.sha }}"
-
     - name: List modified files
       id: list-modified-files
       run: |
@@ -33,15 +30,6 @@ jobs:
         git diff-tree --no-commit-id --name-only -r ${{ github.sha }} > modified_files.txt || true
         echo "Modified files:"
         cat modified_files.txt
-
-    - name: Check modified files
-      run: |
-        if [ -s modified_files.txt ]; then
-          echo "Modified files:"
-          cat modified_files.txt
-        else
-          echo "No modified files found."
-        fi
 
     - name: Run prediction script
       run: |

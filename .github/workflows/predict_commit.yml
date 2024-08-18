@@ -27,7 +27,7 @@ jobs:
       id: list-modified-files
       run: |
         # Afficher les fichiers modifiés dans le commit actuel
-        git diff --name-only HEAD~1 HEAD > modified_files.txt
+        git diff-tree --no-commit-id --name-only -r ${{ github.sha }} > modified_files.txt
         echo "Modified files:"
         cat modified_files.txt
 

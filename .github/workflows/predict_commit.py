@@ -1,6 +1,6 @@
-import sys
 import pandas as pd
 import numpy as np
+import sys
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
@@ -63,6 +63,11 @@ k_neighbors = get_k_neighbors(y_train)
 # Appliquer SMOTE
 smote = SMOTE(k_neighbors=k_neighbors, random_state=42)
 X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
+
+# Vérifier la distribution des classes après SMOTE en pourcentage
+class_distribution = pd.Series(y_train_sm).value_counts(normalize=True) * 100
+print("Distribution des classes après SMOTE (en pourcentage) :")
+print(class_distribution)
 
 # Hyperparameter tuning pour Random Forest
 param_grid = {
@@ -132,31 +137,23 @@ def preprocess_new_commit(commit_message):
     return new_commit_features
 
 # Prédiction avec les modèles
-def predict_new_commit(commit_message, modified_files):
+def predict_new_commit(commit_message):
     new_commit_preprocessed = preprocess_new_commit(commit_message)
     new_commit_prediction_proba_rf = rf_model.predict_proba(new_commit_preprocessed)
     new_commit_prediction_proba_nn = nn_model.predict(new_commit_preprocessed)
-    
     print("\nPrediction Random Forest :")
     for i, proba in enumerate(new_commit_prediction_proba_rf[0]):
         class_name = class_index_mapping[i]
         print(f"{class_name} : {proba * 100:.2f}%")
-    
     print("\nPrediction Neural Network :")
     for i, proba in enumerate(new_commit_prediction_proba_nn[0]):
         class_name = class_index_mapping[i]
         print(f"{class_name} : {proba * 100:.2f}%")
-    
-    print("\nModified files:")
-    print(modified_files)
 
-# Lecture du message du commit et des fichiers modifiés depuis les arguments
+# Lecture du message du commit depuis les arguments
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Erreur : Aucun message de commit fourni.")
         sys.exit(1)
-    
     commit_message = sys.argv[1]
-    modified_files = sys.argv[2] if len(sys.argv) > 2 else "No modified files information"
-    
-    predict_new_commit(commit_message, modified_files)
+    predict_new_commit(commit_message)

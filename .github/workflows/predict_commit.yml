@@ -1,0 +1,28 @@
+name: Predict Commit
+
+on:
+  push:
+    branches:
+      - branch_Arij  # Branche à surveiller pour les commits
+
+jobs:
+  predict_commit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy scikit-learn imbalanced-learn tensorflow termcolor joblib
+
+    - name: Run prediction script
+      run: |
+        python .github/workflows/predict_commit.py "${{ github.event.head_commit.message }}"
